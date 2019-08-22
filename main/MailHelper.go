@@ -42,6 +42,10 @@ func getMails(messages chan *imap.Message) *imap.BodySectionName {
 
 	seqSet := new(imap.SeqSet)
 	for i := uint32(0); i < 10; i++ {
+		currNum := mbox.Messages - i
+		if currNum < 0 {
+			break
+		}
 		seqSet.AddNum(mbox.Messages - i)
 	}
 

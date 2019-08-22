@@ -5,7 +5,7 @@ A simple bot int GOlang to receive emails in matrix
 ## Information
 Only one room and emailaddress are supported currently
 <br>
-<code>Note: This bot is currently in development</code>
+<code>Note: This bot is currently in development so very unstable and buggy</code>
 <br>
 
 ## Install
@@ -20,3 +20,4 @@ if everyting is set up correctly and you have to restarted the bot again, your e
 - [X]  Use custom IMAPs Server and port
 - [ ]  Use the bot with multiple email addresses
 - [ ]  Use the bot for multiple user
+- [ ]  Use custom mailbox instead of INBOX
