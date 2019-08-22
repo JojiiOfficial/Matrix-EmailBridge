@@ -1,7 +1,6 @@
 # Matrix-EmailBot
 A simple bot int GOlang to receive emails in matrix
 
-<br>
 
 ### Information
 Only one room and emailaddress are supported currently
