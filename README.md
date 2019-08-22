@@ -21,3 +21,5 @@ if everyting is set up correctly and you have to restarted the bot again, your e
 - [ ]  Use the bot with multiple email addresses
 - [ ]  Use the bot for multiple user
 - [ ]  Use custom mailbox instead of INBOX
+- [ ]  Send email
+- [ ]  Use commands to move/delete emails
