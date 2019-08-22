@@ -46,7 +46,7 @@ func initCfg() bool {
 		viper.SetDefault("matrixaccesstoken", "hlaksdjhaslkfslkj")
 		viper.SetDefault("matrixuserid", "@m:matrix.org")
 		viper.SetDefault("mailCheckInterval", 10)
-		viper.SetDefault("roomID", "!sadfasdfasdf:host.de")
+		viper.SetDefault("roomID", "")
 		viper.WriteConfigAs("./cfg.json")
 		return true
 	}
@@ -143,6 +143,9 @@ func fetchNewMails() {
 }
 
 func handleMail(mail *imap.Message, section *imap.BodySectionName) {
+	if len(viper.GetString("roomID")) == 0 {
+		return
+	}
 	content := getMailContent(mail, section)
 	parseMailBody(&content.body)
 	fmt.Println("new Mail:")
