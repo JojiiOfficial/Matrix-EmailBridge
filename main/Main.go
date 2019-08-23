@@ -17,7 +17,6 @@ import (
 )
 
 var matrixClient *mautrix.Client
-var mailClient *client.Client
 var db *sql.DB
 
 func initDB() error {
@@ -38,15 +37,10 @@ func initCfg() bool {
 	err := viper.ReadInConfig()
 	if err != nil {
 		fmt.Println("config not found. creating new one")
-		viper.SetDefault("emailhost", "host.de")
-		viper.SetDefault("port", "993")
-		viper.SetDefault("username", "a@a.de")
-		viper.SetDefault("password", "passs")
 		viper.SetDefault("matrixServer", "matrix.org")
 		viper.SetDefault("matrixaccesstoken", "hlaksdjhaslkfslkj")
 		viper.SetDefault("matrixuserid", "@m:matrix.org")
 		viper.SetDefault("defuaultmailCheckInterval", 10)
-		viper.SetDefault("roomID", "")
 		viper.WriteConfigAs("./cfg.json")
 		return true
 	}
@@ -117,13 +111,18 @@ func startMatrixSync(client *mautrix.Client) {
 							ignoreSSlCert = false
 						}
 					}
-					id, success := insertEmailAccount(host, username, password, ignoreSSlCert)
-					if !success {
-						client.SendText(roomID, "sth went wrong. Contact your admin")
-						return
+					mclient, err := loginMail(host, username, password)
+					if mclient != nil && err == nil {
+						id, success := insertEmailAccount(host, username, password, ignoreSSlCert)
+						if !success {
+							client.SendText(roomID, "sth went wrong. Contact your admin")
+							return
+						}
+						insertNewRoom(roomID, int(id), viper.GetInt("defuaultmailCheckInterval"))
+						client.SendText(roomID, "Bridge created successfully!")
+					} else {
+						client.SendText(roomID, "Error creating bridge:\r\n"+err.Error())
 					}
-					insertNewRoom(roomID, int(id), viper.GetInt("defuaultmailCheckInterval"))
-					client.SendText(roomID, "Bridge created successfully!")
 				}
 			}
 		} else {
@@ -147,7 +146,6 @@ func startMatrixSync(client *mautrix.Client) {
 }
 
 func main() {
-
 	exit := initCfg()
 	if exit {
 		return
@@ -162,46 +160,85 @@ func main() {
 
 	loginMatrix()
 
-	host := viper.GetString("emailhost") + ":" + viper.GetString("port")
-	fmt.Println(host)
-	err := loginMail(host, viper.GetString("username"), viper.GetString("password"))
+	fmt.Println("asd")
 
-	if err != nil {
-		log.Fatal(err)
-	}
+	startMailSchedeuler()
+
+	// host := viper.GetString("emailhost") + ":" + viper.GetString("port")
+	// fmt.Println(host)
+	// mail, err := loginMail(host, viper.GetString("username"), viper.GetString("password"))
+	// mailClient = mail
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// mailCheckTimer()
+	// defer mailClient.Logout()
 	mailCheckTimer()
-	defer mailClient.Logout()
+}
+
+func startMailSchedeuler() {
+	accounts, err := getEmailAccounts()
+	if err != nil {
+		log.Panic(err)
+	}
+	for i := 0; i < len(accounts); i++ {
+		go startMailListener(accounts[i])
+	}
+}
+
+func startMailListener(account emailAccount) {
+	quit := make(chan struct{})
+	mClient, err := loginMail(account.host, account.username, account.password)
+	if err != nil {
+		log.Panic(err)
+		matrixClient.SendText(account.roomID, "Error:\r\n"+err.Error())
+		return
+	}
+
+	go func() {
+		for {
+			select {
+			case <-quit:
+				return
+			default:
+				fetchNewMails(mClient, account)
+				time.Sleep(5 * time.Second)
+				fmt.Println("check for " + account.username)
+			}
+		}
+	}()
+
+	//close(quit)
 }
 
 func mailCheckTimer() {
 	for {
-		go fetchNewMails()
+		//fetchNewMails()
 		interval := viper.GetInt64("defuaultmailCheckInterval")
 		time.Sleep((time.Duration)(int64(interval)) * time.Second)
 	}
 }
 
-func fetchNewMails() {
+func fetchNewMails(mClient *client.Client, account emailAccount) {
 	messages := make(chan *imap.Message, 1)
-	section := getMails(messages)
+	section := getMails(mClient, messages)
 
 	for msg := range messages {
 		mailID := msg.Envelope.Subject + strconv.Itoa(int(msg.InternalDate.Unix()))
 		if has, err := dbContainsMail(mailID); !has && err == nil {
 			go insertEmail(mailID)
-			handleMail(msg, section)
+			handleMail(msg, section, account)
+		} else if err != nil {
+			log.Panic(err)
 		}
 	}
 }
 
-func handleMail(mail *imap.Message, section *imap.BodySectionName) {
-	if len(viper.GetString("roomID")) == 0 {
-		return
-	}
+func handleMail(mail *imap.Message, section *imap.BodySectionName, account emailAccount) {
 	content := getMailContent(mail, section)
 	fmt.Println("new Mail:")
 	fmt.Println(content.body)
-	matrixClient.SendText(viper.GetString("roomID"), "You've got a new Email FROM defuaultmailCheckInterval+content.from+")
-	matrixClient.SendText(viper.GetString("roomID"), "Subject: "+content.subject)
-	matrixClient.SendText(viper.GetString("roomID"), content.body)
+	matrixClient.SendText(account.roomID, "You've got a new Email FROM "+content.from)
+	matrixClient.SendText(account.roomID, "Subject: "+content.subject)
+	matrixClient.SendText(account.roomID, content.body)
 }

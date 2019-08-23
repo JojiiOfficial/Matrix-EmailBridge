@@ -18,7 +18,7 @@ func insertEmail(email string) error {
 		return err
 	}
 
-	stmt, err := db.Prepare("INSERT OR IGNORE INTO mails(mail) values(?)")
+	stmt, err := db.Prepare("INSERT OR IGNORE INTO mail(mail) values(?)")
 	checkErr(err)
 
 	res, err := stmt.Exec(email)
@@ -28,7 +28,7 @@ func insertEmail(email string) error {
 }
 
 func dbContainsMail(mail string) (bool, error) {
-	stmt, err := db.Prepare("SELECT COUNT(mail) FROM mails WHERE mail=?")
+	stmt, err := db.Prepare("SELECT COUNT(mail) FROM mail WHERE mail=?")
 	if err != nil {
 		return false, err
 	}
@@ -110,4 +110,29 @@ func checkErr(de error) bool {
 		return false
 	}
 	return true
+}
+
+type emailAccount struct {
+	host, username, password, roomID string
+	ignoreSSL                        bool
+}
+
+func getEmailAccounts() ([]emailAccount, error) {
+	rows, err := db.Query("SELECT host, username, password, ignoreSSL, (SELECT roomID FROM rooms WHERE rooms.emailAcc = emailAccounts.pk_id) FROM emailAccounts")
+	if !checkErr(err) {
+		return nil, err
+	}
+
+	var list []emailAccount
+	var host, username, password, roomID string
+	var ignoreSSL int
+	for rows.Next() {
+		rows.Scan(&host, &username, &password, &ignoreSSL, &roomID)
+		ignssl := false
+		if ignoreSSL == 1 {
+			ignssl = true
+		}
+		list = append(list, emailAccount{host, username, password, roomID, ignssl})
+	}
+	return list, nil
 }

@@ -16,23 +16,22 @@ import (
 	strip "github.com/grokify/html-strip-tags-go"
 )
 
-func loginMail(host, username, password string) error {
+func loginMail(host, username, password string) (*client.Client, error) {
 	ailClient, err := client.DialTLS(host, &tls.Config{InsecureSkipVerify: true})
-	mailClient = ailClient
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := ailClient.Login(username, password); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return ailClient, nil
 }
 
-func getMails(messages chan *imap.Message) *imap.BodySectionName {
-	mbox, err := mailClient.Select("INBOX", false)
+func getMails(mClient *client.Client, messages chan *imap.Message) *imap.BodySectionName {
+	mbox, err := mClient.Select("INBOX", false)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -52,7 +51,7 @@ func getMails(messages chan *imap.Message) *imap.BodySectionName {
 	section := &imap.BodySectionName{}
 	items := []imap.FetchItem{imap.FetchEnvelope, imap.FetchFlags, imap.FetchInternalDate, section.FetchItem()}
 	go func() {
-		if err := mailClient.Fetch(seqSet, items, messages); err != nil {
+		if err := mClient.Fetch(seqSet, items, messages); err != nil {
 			log.Fatal(err)
 		}
 	}()
@@ -63,8 +62,6 @@ type email struct {
 	body, from, to, subject, attachment string
 	date                                time.Time
 }
-
-
 
 func getMailContent(msg *imap.Message, section *imap.BodySectionName) email {
 	if msg == nil {
