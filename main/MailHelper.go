@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"fmt"
 	"html"
 	"io"
 	"io/ioutil"
@@ -63,21 +64,24 @@ type email struct {
 	date                                time.Time
 }
 
-func getMailContent(msg *imap.Message, section *imap.BodySectionName) email {
+func getMailContent(msg *imap.Message, section *imap.BodySectionName) *email {
 	if msg == nil {
-		log.Fatal("Server didn't returned message")
+		fmt.Println("msg is nil")
+		return nil
 	}
 
 	r := msg.GetBody(section)
 	if r == nil {
-		log.Fatal("Server didn't returned message body")
+		fmt.Println("reader is nli")
+		return nil
 	}
 
 	jmail := email{}
 
 	mr, err := mail.CreateReader(r)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err.Error())
+		return nil
 	}
 
 	header := mr.Header
@@ -110,7 +114,7 @@ func getMailContent(msg *imap.Message, section *imap.BodySectionName) email {
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			log.Fatal(err)
+			log.Println(err.Error())
 			break
 		}
 
@@ -132,13 +136,12 @@ func getMailContent(msg *imap.Message, section *imap.BodySectionName) email {
 			jmail.attachment += string(filename)
 		}
 	}
-	return jmail
+	return &jmail
 }
 
 func parseMailBody(body *string) {
 	*body = strip.StripTags(html.UnescapeString(*body))
 	*body = strings.TrimRight(*body, "\r\n")
 	*body = strings.TrimLeft(*body, "\r\n")
-	*body = strings.ReplaceAll(*body, "\r\n\r\n\r\n", "\n")
 	*body = strings.ReplaceAll(*body, "\r\n\r\n", "\n")
 }
