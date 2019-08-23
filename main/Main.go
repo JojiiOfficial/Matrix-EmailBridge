@@ -77,6 +77,11 @@ func startMatrixSync(client *mautrix.Client) {
 		fmt.Printf("<%[1]s> %[4]s (%[2]s/%[3]s)\n", evt.Sender, evt.Type.String(), evt.ID, evt.Content.Body)
 		fmt.Println(evt.Content.Membership)
 		if evt.Sender != client.UserID && evt.Content.Membership == "leave" {
+			_, ok := listenerMap[evt.RoomID]
+			if ok {
+				close(listenerMap[evt.RoomID])
+				//delete(listenerMap, evt.RoomID)
+			}
 			deleteRoomAndEmailByRoomID(evt.RoomID)
 		}
 	})
@@ -111,6 +116,18 @@ func startMatrixSync(client *mautrix.Client) {
 							ignoreSSlCert = false
 						}
 					}
+					isInUse, err := isEmailAlreadyInUse(username)
+					if err != nil {
+						client.SendText(roomID, "Something went wrong!")
+						log.Fatal(err)
+						return
+					}
+
+					if isInUse {
+						client.SendText(roomID, "This email is already in Use! You cannot use your email twice!")
+						return
+					}
+
 					mclient, err := loginMail(host, username, password)
 					if mclient != nil && err == nil {
 						id, success := insertEmailAccount(host, username, password, ignoreSSlCert)
@@ -118,8 +135,9 @@ func startMatrixSync(client *mautrix.Client) {
 							client.SendText(roomID, "sth went wrong. Contact your admin")
 							return
 						}
-						insertNewRoom(roomID, int(id), viper.GetInt("defuaultmailCheckInterval"))
+						newRoomID := insertNewRoom(roomID, int(id), viper.GetInt("defuaultmailCheckInterval"))
 						client.SendText(roomID, "Bridge created successfully!")
+						startMailListener(emailAccount{host, username, password, roomID, ignoreSSlCert, int(newRoomID)})
 					} else {
 						client.SendText(roomID, "Error creating bridge:\r\n"+err.Error())
 					}
@@ -160,23 +178,17 @@ func main() {
 
 	loginMatrix()
 
-	fmt.Println("asd")
-
 	startMailSchedeuler()
 
-	// host := viper.GetString("emailhost") + ":" + viper.GetString("port")
-	// fmt.Println(host)
-	// mail, err := loginMail(host, viper.GetString("username"), viper.GetString("password"))
-	// mailClient = mail
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// mailCheckTimer()
-	// defer mailClient.Logout()
-	mailCheckTimer()
+	for {
+		time.Sleep(1 * time.Second)
+	}
 }
 
+var listenerMap map[string]chan bool
+
 func startMailSchedeuler() {
+	listenerMap = make(map[string]chan bool)
 	accounts, err := getEmailAccounts()
 	if err != nil {
 		log.Panic(err)
@@ -187,36 +199,26 @@ func startMailSchedeuler() {
 }
 
 func startMailListener(account emailAccount) {
-	quit := make(chan struct{})
+	quit := make(chan bool)
 	mClient, err := loginMail(account.host, account.username, account.password)
 	if err != nil {
 		log.Panic(err)
 		matrixClient.SendText(account.roomID, "Error:\r\n"+err.Error())
 		return
 	}
-
+	listenerMap[account.roomID] = quit
 	go func() {
 		for {
 			select {
 			case <-quit:
 				return
 			default:
+				fmt.Println("check for " + account.username)
 				fetchNewMails(mClient, account)
 				time.Sleep(5 * time.Second)
-				fmt.Println("check for " + account.username)
 			}
 		}
 	}()
-
-	//close(quit)
-}
-
-func mailCheckTimer() {
-	for {
-		//fetchNewMails()
-		interval := viper.GetInt64("defuaultmailCheckInterval")
-		time.Sleep((time.Duration)(int64(interval)) * time.Second)
-	}
 }
 
 func fetchNewMails(mClient *client.Client, account emailAccount) {
@@ -225,8 +227,8 @@ func fetchNewMails(mClient *client.Client, account emailAccount) {
 
 	for msg := range messages {
 		mailID := msg.Envelope.Subject + strconv.Itoa(int(msg.InternalDate.Unix()))
-		if has, err := dbContainsMail(mailID); !has && err == nil {
-			go insertEmail(mailID)
+		if has, err := dbContainsMail(mailID, account.roomPKID); !has && err == nil {
+			go insertEmail(mailID, account.roomPKID)
 			handleMail(msg, section, account)
 		} else if err != nil {
 			log.Panic(err)

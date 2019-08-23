@@ -11,30 +11,30 @@ var tables = []table{
 	table{"rooms", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, roomID TEXT, emailAcc INTEGER DEFAULT -1, mailCheckInterval INTEGER"},
 	table{"emailAccounts", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, host TEXT, username TEXT, password TEXT, ignoreSSL INTEGER"}}
 
-func insertEmail(email string) error {
-	if val, err := dbContainsMail(email); val && err == nil {
+func insertEmail(email string, roomPK int) error {
+	if val, err := dbContainsMail(email, roomPK); val && err == nil {
 		return nil
 	} else if err != nil {
 		return err
 	}
 
-	stmt, err := db.Prepare("INSERT OR IGNORE INTO mail(mail) values(?)")
+	stmt, err := db.Prepare("INSERT OR IGNORE INTO mail(mail, room) values(?,?)")
 	checkErr(err)
 
-	res, err := stmt.Exec(email)
+	res, err := stmt.Exec(email, roomPK)
 	checkErr(err)
 	_ = res
 	return nil
 }
 
-func dbContainsMail(mail string) (bool, error) {
-	stmt, err := db.Prepare("SELECT COUNT(mail) FROM mail WHERE mail=?")
+func dbContainsMail(mail string, roomPK int) (bool, error) {
+	stmt, err := db.Prepare("SELECT COUNT(mail) FROM mail WHERE mail=? AND room=?")
 	if err != nil {
 		return false, err
 	}
 	defer stmt.Close()
 	var count int
-	err = stmt.QueryRow(mail).Scan(&count)
+	err = stmt.QueryRow(mail, roomPK).Scan(&count)
 	if err != nil {
 		return false, err
 	}
@@ -63,10 +63,15 @@ func createAllTables() {
 	}
 }
 
-func insertNewRoom(roomID string, emailAccID, mailCheckInterval int) {
+func insertNewRoom(roomID string, emailAccID, mailCheckInterval int) int64 {
 	stmt, err := db.Prepare("INSERT INTO rooms (roomID, emailAcc, mailCheckInterval) VALUES(?,?,?)")
 	checkErr(err)
-	stmt.Exec(roomID, emailAccID, mailCheckInterval)
+	res, err := stmt.Exec(roomID, emailAccID, mailCheckInterval)
+	if err != nil {
+		log.Fatal(err)
+	}
+	id, _ := res.LastInsertId()
+	return id
 }
 
 func hasRoom(roomID string) (bool, error) {
@@ -115,24 +120,39 @@ func checkErr(de error) bool {
 type emailAccount struct {
 	host, username, password, roomID string
 	ignoreSSL                        bool
+	roomPKID                         int
+}
+
+func isEmailAlreadyInUse(email string) (bool, error) {
+	stmt, err := db.Prepare("SELECT COUNT(pk_id) FROM emailAccounts WHERE username=?")
+	if err != nil {
+		return false, err
+	}
+	defer stmt.Close()
+	var count int
+	err = stmt.QueryRow(email).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return (count > 0), nil
 }
 
 func getEmailAccounts() ([]emailAccount, error) {
-	rows, err := db.Query("SELECT host, username, password, ignoreSSL, (SELECT roomID FROM rooms WHERE rooms.emailAcc = emailAccounts.pk_id) FROM emailAccounts")
+	rows, err := db.Query("SELECT host, username, password, ignoreSSL, (SELECT roomID FROM rooms WHERE rooms.emailAcc = emailAccounts.pk_id),  (SELECT pk_id FROM rooms WHERE rooms.emailAcc = emailAccounts.pk_id) FROM emailAccounts")
 	if !checkErr(err) {
 		return nil, err
 	}
 
 	var list []emailAccount
 	var host, username, password, roomID string
-	var ignoreSSL int
+	var ignoreSSL, roomPKID int
 	for rows.Next() {
-		rows.Scan(&host, &username, &password, &ignoreSSL, &roomID)
+		rows.Scan(&host, &username, &password, &ignoreSSL, &roomID, &roomPKID)
 		ignssl := false
 		if ignoreSSL == 1 {
 			ignssl = true
 		}
-		list = append(list, emailAccount{host, username, password, roomID, ignssl})
+		list = append(list, emailAccount{host, username, password, roomID, ignssl, roomPKID})
 	}
 	return list, nil
 }
