@@ -1,5 +1,5 @@
 # Matrix-EmailBot
-A simple bot int GOlang to receive emails in matrix
+A bot/bridge written in GOlang to read your emailaccounts in matrix
 
 
 ## Information
