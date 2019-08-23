@@ -147,7 +147,6 @@ func handleMail(mail *imap.Message, section *imap.BodySectionName) {
 		return
 	}
 	content := getMailContent(mail, section)
-	parseMailBody(&content.body)
 	fmt.Println("new Mail:")
 	fmt.Println(content.body)
 	matrixClient.SendText(viper.GetString("roomID"), "You've got a new Email FROM "+content.from+":")
