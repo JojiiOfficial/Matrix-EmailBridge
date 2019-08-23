@@ -74,8 +74,6 @@ func startMatrixSync(client *mautrix.Client) {
 		client.SendText(evt.RoomID, "Hey you have invited me to a new room. Enter !login to bridge this room to a Mail account")
 	})
 	syncer.OnEventType(mautrix.StateMember, func(evt *mautrix.Event) {
-		fmt.Printf("<%[1]s> %[4]s (%[2]s/%[3]s)\n", evt.Sender, evt.Type.String(), evt.ID, evt.Content.Body)
-		fmt.Println(evt.Content.Membership)
 		if evt.Sender != client.UserID && evt.Content.Membership == "leave" {
 			_, ok := listenerMap[evt.RoomID]
 			if ok {
@@ -90,7 +88,6 @@ func startMatrixSync(client *mautrix.Client) {
 		if evt.Sender == client.UserID {
 			return
 		}
-		fmt.Printf("<%[1]s> %[4]s (%[2]s/%[3]s)\n", evt.Sender, evt.Type.String(), evt.ID, evt.Content.Body)
 		message := evt.Content.Body
 		roomID := evt.RoomID
 		//commands only available in room not bridged to email
