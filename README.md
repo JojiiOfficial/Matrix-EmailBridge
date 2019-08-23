@@ -5,7 +5,7 @@ A bot/bridge written in GOlang to read your emailaccounts in matrix
 ## Information
 Only one room and emailaddress are supported currently
 <br>
-<code>Note: This bot is currently in development so very unstable and buggy</code>
+<code>Note: This bot is currently in development so unstable and a bit buggy</code>
 <br>
 
 ## Install
