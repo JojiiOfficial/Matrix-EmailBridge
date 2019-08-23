@@ -116,7 +116,9 @@ func getMailContent(msg *imap.Message, section *imap.BodySectionName) email {
 		switch h := p.Header.(type) {
 		case *mail.InlineHeader:
 			b, _ := ioutil.ReadAll(p.Body)
-			jmail.body += string(b)
+			if jmail.body != string(b) {
+				jmail.body += string(b)
+			}
 		case *mail.AttachmentHeader:
 			filename, _ := h.Filename()
 			jmail.attachment += string(filename)
