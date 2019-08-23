@@ -148,7 +148,6 @@ func startMatrixSync(client *mautrix.Client) {
 					client.SendText(roomID, "This room is already assigned to a emailaddress. Create a new room if you want to bridge a new emailaccount")
 				} else {
 					//commands always available
-
 				}
 			}
 		}
@@ -212,7 +211,7 @@ func startMailListener(account emailAccount) {
 			default:
 				fmt.Println("check for " + account.username)
 				fetchNewMails(mClient, account)
-				time.Sleep(5 * time.Second)
+				time.Sleep((time.Duration)(viper.GetInt("defuaultmailCheckInterval")) * time.Second)
 			}
 		}
 	}()

@@ -104,6 +104,7 @@ func getMailContent(msg *imap.Message, section *imap.BodySectionName) email {
 		jmail.subject = subject
 	}
 
+	hadPlan := false
 	for {
 		p, err := mr.NextPart()
 		if err == io.EOF {
@@ -115,12 +116,17 @@ func getMailContent(msg *imap.Message, section *imap.BodySectionName) email {
 
 		switch h := p.Header.(type) {
 		case *mail.InlineHeader:
+			if strings.HasPrefix(p.Header.Get("Content-Type"), "text/html") && hadPlan {
+				continue
+			}
+
+			if strings.HasPrefix(p.Header.Get("Content-Type"), "text/plain") {
+				hadPlan = true
+			}
 			b, _ := ioutil.ReadAll(p.Body)
 			bodycontent := string(b)
 			parseMailBody(&bodycontent)
-			if jmail.body != bodycontent {
-				jmail.body += bodycontent
-			}
+			jmail.body = bodycontent
 		case *mail.AttachmentHeader:
 			filename, _ := h.Filename()
 			jmail.attachment += string(filename)
@@ -130,5 +136,9 @@ func getMailContent(msg *imap.Message, section *imap.BodySectionName) email {
 }
 
 func parseMailBody(body *string) {
-	*body = strings.ReplaceAll(strip.StripTags(html.UnescapeString(*body)), "\n\n", "\n")
+	*body = strip.StripTags(html.UnescapeString(*body))
+	*body = strings.TrimRight(*body, "\r\n")
+	*body = strings.TrimLeft(*body, "\r\n")
+	*body = strings.ReplaceAll(*body, "\r\n\r\n\r\n", "\n")
+	*body = strings.ReplaceAll(*body, "\r\n\r\n", "\n")
 }
