@@ -64,6 +64,8 @@ type email struct {
 	date                                time.Time
 }
 
+
+
 func getMailContent(msg *imap.Message, section *imap.BodySectionName) email {
 	if msg == nil {
 		log.Fatal("Server didn't returned message")

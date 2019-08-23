@@ -2,10 +2,10 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/emersion/go-imap"
@@ -45,7 +45,7 @@ func initCfg() bool {
 		viper.SetDefault("matrixServer", "matrix.org")
 		viper.SetDefault("matrixaccesstoken", "hlaksdjhaslkfslkj")
 		viper.SetDefault("matrixuserid", "@m:matrix.org")
-		viper.SetDefault("mailCheckInterval", 10)
+		viper.SetDefault("defuaultmailCheckInterval", 10)
 		viper.SetDefault("roomID", "")
 		viper.WriteConfigAs("./cfg.json")
 		return true
@@ -62,35 +62,87 @@ func loginMatrix() {
 	}
 	client.SetDisplayName("jojiiMail")
 	matrixClient = client
+
+	store := NewFileStore("store.json")
+	store.Load()
+	client.Store = store
+
 	go startMatrixSync(client)
 }
 
 func startMatrixSync(client *mautrix.Client) {
 	fmt.Println(client.UserID)
-	filt, err := client.CreateFilter(json.RawMessage("{ \"room\": { \"state\": { \"types\": [ \"m.room.*\" ] } }, \"presence\": { \"types\": [ \"m.presence\" ] }, \"event_fields\": [ \"type\", \"content\", \"sender\", \"room_id\", \"event_id\" ] }"))
-	if err != nil {
-		log.Panic(err)
-		return
-	}
 
-	var next = ""
-	for {
-		syncRes, err := client.SyncRequest(100000, next, filt.FilterID, false, "online")
-		if err != nil {
-			continue
+	syncer := client.Syncer.(*mautrix.DefaultSyncer)
+
+	syncer.OnEventType(mautrix.StateJoinRules, func(evt *mautrix.Event) {
+		client.JoinRoom(evt.RoomID, "", nil)
+		client.SendText(evt.RoomID, "Hey you have invited me to a new room. Enter !login to bridge this room to a Mail account")
+	})
+	syncer.OnEventType(mautrix.StateMember, func(evt *mautrix.Event) {
+		fmt.Printf("<%[1]s> %[4]s (%[2]s/%[3]s)\n", evt.Sender, evt.Type.String(), evt.ID, evt.Content.Body)
+		fmt.Println(evt.Content.Membership)
+		if evt.Sender != client.UserID && evt.Content.Membership == "leave" {
+			deleteRoomAndEmailByRoomID(evt.RoomID)
 		}
-		next = syncRes.NextBatch
+	})
 
-		//autojoin
-		invites := syncRes.Rooms.Invite
-		if invites != nil {
-			for key, val := range invites {
-				_ = val
-				client.JoinRoom(key, "", nil)
+	syncer.OnEventType(mautrix.EventMessage, func(evt *mautrix.Event) {
+		if evt.Sender == client.UserID {
+			return
+		}
+		fmt.Printf("<%[1]s> %[4]s (%[2]s/%[3]s)\n", evt.Sender, evt.Type.String(), evt.ID, evt.Content.Body)
+		message := evt.Content.Body
+		roomID := evt.RoomID
+		//commands only available in room not bridged to email
+		if has, err := hasRoom(roomID); !has && err == nil {
+			if message == "!login" {
+				client.SendText(roomID, "Okay send me the data of your server(IMAPs) in the given order, splitted by a comma(,)\r\n!setup host:port, username/email, password\r\n\r\nExample: \r\n!setup host.com:993, mail@host.com, w0rdp4ss")
+			} else if strings.HasPrefix(message, "!setup") {
+				data := strings.Trim(strings.ReplaceAll(message, "!setup", ""), " ")
+				s := strings.Split(data, ",")
+				for i := 0; i < len(s); i++ {
+					s[i] = strings.Trim(s[i], " ")
+				}
+				if len(s) < 3 || len(s) > 4 {
+					client.SendText(roomID, "Wrong syntax :/\r\nExample: \r\n!setup host.com:993, mail@host.com, w0rdp4ss")
+				} else {
+					host := s[0]
+					username := s[1]
+					password := s[2]
+					ignoreSSlCert := false
+					if len(s) == 4 {
+						ignoreSSlCert, err = strconv.ParseBool(s[3])
+						if err != nil {
+							ignoreSSlCert = false
+						}
+					}
+					id, success := insertEmailAccount(host, username, password, ignoreSSlCert)
+					if !success {
+						client.SendText(roomID, "sth went wrong. Contact your admin")
+						return
+					}
+					insertNewRoom(roomID, int(id), viper.GetInt("defuaultmailCheckInterval"))
+					client.SendText(roomID, "Bridge created successfully!")
+				}
+			}
+		} else {
+			if err != nil {
+				client.SendText(roomID, "sth went wrong. Contact your admin")
+			} else {
+				if message == "!login" || strings.HasPrefix(message, "!setup") {
+					client.SendText(roomID, "This room is already assigned to a emailaddress. Create a new room if you want to bridge a new emailaccount")
+				} else {
+					//commands always available
+
+				}
 			}
 		}
+	})
 
-		time.Sleep(1 * time.Second)
+	err := client.Sync()
+	if err != nil {
+		fmt.Println(err)
 	}
 }
 
@@ -103,9 +155,9 @@ func main() {
 
 	er := initDB()
 	if er == nil {
-		createTable()
+		createAllTables()
 	} else {
-		return
+		panic(er)
 	}
 
 	loginMatrix()
@@ -124,7 +176,7 @@ func main() {
 func mailCheckTimer() {
 	for {
 		go fetchNewMails()
-		interval := viper.GetInt64("mailCheckInterval")
+		interval := viper.GetInt64("defuaultmailCheckInterval")
 		time.Sleep((time.Duration)(int64(interval)) * time.Second)
 	}
 }
@@ -149,7 +201,7 @@ func handleMail(mail *imap.Message, section *imap.BodySectionName) {
 	content := getMailContent(mail, section)
 	fmt.Println("new Mail:")
 	fmt.Println(content.body)
-	matrixClient.SendText(viper.GetString("roomID"), "You've got a new Email FROM "+content.from+":")
+	matrixClient.SendText(viper.GetString("roomID"), "You've got a new Email FROM defuaultmailCheckInterval+content.from+")
 	matrixClient.SendText(viper.GetString("roomID"), "Subject: "+content.subject)
 	matrixClient.SendText(viper.GetString("roomID"), content.body)
 }

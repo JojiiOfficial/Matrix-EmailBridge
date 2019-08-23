@@ -2,6 +2,15 @@ package main
 
 import "log"
 
+type table struct {
+	name, values string
+}
+
+var tables = []table{
+	table{"mail", "mail TEXT, room INTEGER"},
+	table{"rooms", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, roomID TEXT, emailAcc INTEGER DEFAULT -1, mailCheckInterval INTEGER"},
+	table{"emailAccounts", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, host TEXT, username TEXT, password TEXT, ignoreSSL INTEGER"}}
+
 func insertEmail(email string) error {
 	if val, err := dbContainsMail(email); val && err == nil {
 		return nil
@@ -32,14 +41,73 @@ func dbContainsMail(mail string) (bool, error) {
 	return (count > 0), nil
 }
 
-func createTable() error {
-	res, err := db.Exec("CREATE TABLE IF NOT EXISTS mails (mail TEXT)")
-	_ = res
+func deleteRoomAndEmailByRoomID(roomID string) {
+	stmt1, err := db.Prepare("DELETE FROM emailAccounts WHERE pk_id=(SELECT emailAcc FROM rooms WHERE roomID=?)")
+	checkErr(err)
+	stmt1.Exec(roomID)
+
+	stmt2, err := db.Prepare("DELETE FROM rooms WHERE roomID=?")
+	checkErr(err)
+	stmt2.Exec(roomID)
+}
+
+func createTable(name, values string) error {
+	_, err := db.Exec("CREATE TABLE IF NOT EXISTS " + name + " (" + values + ")")
+	checkErr(err)
 	return err
 }
 
-func checkErr(de error) {
+func createAllTables() {
+	for _, tab := range tables {
+		createTable(tab.name, tab.values)
+	}
+}
+
+func insertNewRoom(roomID string, emailAccID, mailCheckInterval int) {
+	stmt, err := db.Prepare("INSERT INTO rooms (roomID, emailAcc, mailCheckInterval) VALUES(?,?,?)")
+	checkErr(err)
+	stmt.Exec(roomID, emailAccID, mailCheckInterval)
+}
+
+func hasRoom(roomID string) (bool, error) {
+	stmt, err := db.Prepare("SELECT COUNT(pk_id) FROM rooms WHERE roomID=?")
+	if err != nil {
+		return false, err
+	}
+	defer stmt.Close()
+	var count int
+	err = stmt.QueryRow(roomID).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return (count > 0), nil
+}
+
+func insertEmailAccount(host, username, password string, ignoreSSl bool) (id int64, success bool) {
+	stmt, err := db.Prepare("INSERT INTO emailAccounts (host, username, password, ignoreSSL) VALUES(?,?,?,?)")
+	success = true
+	if !checkErr(err) {
+		success = false
+	}
+	ign := 0
+	if ignoreSSl {
+		ign = 1
+	}
+	a, er := stmt.Exec(host, username, password, ign)
+	if !checkErr(er) {
+		success = false
+	}
+	id, e := a.LastInsertId()
+	if !checkErr(e) {
+		success = false
+	}
+	return id, success
+}
+
+func checkErr(de error) bool {
 	if de != nil {
 		log.Fatal(de)
+		return false
 	}
+	return true
 }
