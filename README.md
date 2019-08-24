@@ -17,6 +17,8 @@ Note: you should change the permissions of the <code>cfg.json</code> and <code>d
 - [X]  Use custom IMAPs Server and port
 - [X]  Use the bot with multiple email addresses
 - [X]  Use the bot with multiple user
+- [X]  Ignore SSL certs if required
+- [X]  Detailed error codes/logging 
 - [ ]  Use custom mailbox instead of INBOX
 - [ ]  Send email
 - [ ]  Use commands to move/delete emails
