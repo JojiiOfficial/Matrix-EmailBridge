@@ -19,7 +19,7 @@ if everyting is set up correctly and you have to restarted the bot again, your e
 - [X]  Receiving Email with IMAPs
 - [X]  Use custom IMAPs Server and port
 - [X]  Use the bot with multiple email addresses
-- [X]  Use the bot for multiple user
+- [X]  Use the bot with multiple user
 - [ ]  Use custom mailbox instead of INBOX
 - [ ]  Send email
 - [ ]  Use commands to move/delete emails
