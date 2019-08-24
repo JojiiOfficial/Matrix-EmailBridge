@@ -1,20 +1,19 @@
 # Matrix-EmailBot
-A bot/bridge written in GOlang to read your emailaccounts in matrix
+A matrix-bridge written in GOlang to read your emails in matrix
 
 
 ## Information
 Only one room and emailaddress are supported currently
 <br>
-<code>Note: This bot is currently in development so unstable and a bit buggy</code>
+<code>Note: This bot is currently in development. Its not 100% tested</code>
 <br>
 
 ## Install
-Just run <code>go get</code> to fetch dependencies and <code>go build</code> inside of the folder and execute the created binary. Then you have to adjust the config file to make it work with your matrix server.
-Invite your bot and set the "roomID" in the config file to the roomID of your new room. The bot joins automatically 
-if everyting is set up correctly and you have to restarted the bot again, your emails will be sent into the room you've set as roomID.<br>
-<code>Note: you should change the permissions from the <i>cfg.json</i> and <i>data.db</i> to 640 or 660 because they contain sensitive data, not every user should be able to read them!</code>
+Just run <code>go get</code> to fetch the required dependencies and <code>go build</code> inside of the folder and execute the created binary. Then you have to adjust the config file to make it work with your matrix server.
+Invite your bot into a private room, it will join automatically. If everyting is set up correctly, you can bridge the room by typing !login. Then you just have to follow the instructions. Typing !help shows a list with available commands.<br>Creating a new private room with the bot lets you add a differen email account.<br>
 
-<br>
+## Note
+Note: you should change the permissions of the <code>cfg.json</code> and <code>data.db</code> to <b>640</b> or <b>660</b> because they contain sensitive data, not every user should be able to read them!
 
 ## Features
 - [X]  Receiving Email with IMAPs
