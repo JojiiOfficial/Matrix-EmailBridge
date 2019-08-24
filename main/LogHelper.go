@@ -41,9 +41,7 @@ func loglevelToPrefix(level logLevel) string {
 		}
 	case warn:
 		{
-			{
-				return "[Warning]"
-			}
+			return "[Warning]"
 		}
 	case logError:
 		{
