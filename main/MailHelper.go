@@ -17,8 +17,8 @@ import (
 	strip "github.com/grokify/html-strip-tags-go"
 )
 
-func loginMail(host, username, password string) (*client.Client, error) {
-	ailClient, err := client.DialTLS(host, &tls.Config{InsecureSkipVerify: true})
+func loginMail(host, username, password string, ignoreSSL bool) (*client.Client, error) {
+	ailClient, err := client.DialTLS(host, &tls.Config{InsecureSkipVerify: ignoreSSL})
 
 	if err != nil {
 		return nil, err
