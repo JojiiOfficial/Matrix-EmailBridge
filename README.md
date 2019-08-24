@@ -11,7 +11,8 @@ Only one room and emailaddress are supported currently
 ## Install
 Just run <code>go get</code> to fetch dependencies and <code>go build</code> inside of the folder and execute the created binary. Then you have to adjust the config file to make it work with your matrix server.
 Invite your bot and set the "roomID" in the config file to the roomID of your new room. The bot joins automatically 
-if everyting is set up correctly and you have to restarted the bot again, your emails will be sent into the room you've set as roomID.
+if everyting is set up correctly and you have to restarted the bot again, your emails will be sent into the room you've set as roomID.<br>
+<code>Note: you should change the permissions from the <i>cfg.json</i> and <i>data.db</i> to 640 or 660 because they contain sensitive data, not every user should be able to read them!</code>
 
 <br>
 
