@@ -1,6 +1,10 @@
 package main
 
-import "log"
+import (
+	"encoding/base64"
+	"fmt"
+	"log"
+)
 
 type table struct {
 	name, values string
@@ -115,7 +119,7 @@ func insertimapAccountount(host, username, password string, ignoreSSl bool) (id 
 	if ignoreSSl {
 		ign = 1
 	}
-	a, er := stmt.Exec(host, username, password, ign)
+	a, er := stmt.Exec(host, username, base64.StdEncoding.EncodeToString([]byte(password)), ign)
 	if !checkErr(er) {
 		success = false
 	}
@@ -164,14 +168,18 @@ func getimapAccounts() ([]imapAccountount, error) {
 	var list []imapAccountount
 	var host, username, password, roomID string
 	var ignoreSSL, roomPKID, mailCheckInterval int
-	var silence int
 	for rows.Next() {
-		rows.Scan(&host, &username, &password, &ignoreSSL, &roomID, &roomPKID, &mailCheckInterval, &silence)
+		rows.Scan(&host, &username, &password, &ignoreSSL, &roomID, &roomPKID, &mailCheckInterval)
 		ignssl := false
 		if ignoreSSL == 1 {
 			ignssl = true
 		}
-		list = append(list, imapAccountount{host, username, password, roomID, ignssl, roomPKID, mailCheckInterval, false})
+		pass, berr := base64.StdEncoding.DecodeString(password)
+		if berr != nil {
+			fmt.Println(err.Error())
+			continue
+		}
+		list = append(list, imapAccountount{host, username, string(pass), roomID, ignssl, roomPKID, mailCheckInterval, false})
 	}
 	return list, nil
 }

@@ -142,7 +142,7 @@ func startMatrixSync(client *mautrix.Client) {
 							}
 							defaultMailSyncInterval := viper.GetInt("defuaultmailCheckInterval")
 							newRoomID := insertNewRoom(roomID, int(id), defaultMailSyncInterval)
-							client.SendText(roomID, "Bridge created successfully!")
+							client.SendText(roomID, "Bridge created successfully!\r\nYou should delete the message containing your credentials ;)")
 							startMailListener(imapAccountount{host, username, password, roomID, ignoreSSlCert, int(newRoomID), defaultMailSyncInterval, true})
 						} else {
 							client.SendText(roomID, "Error creating bridge:\r\n"+err.Error())
