@@ -34,18 +34,26 @@ func loginMail(host, username, password string, ignoreSSL bool) (*client.Client,
 func getMails(mClient *client.Client, messages chan *imap.Message) *imap.BodySectionName {
 	mbox, err := mClient.Select("INBOX", false)
 	if err != nil {
-		log.Fatal(err)
+		WriteLog(logError, "#12 couldnt get INBOX "+err.Error())
+		return nil
 	}
+
+	if mbox == nil {
+		WriteLog(logError, "#23 getMails mbox is nli")
+		return nil
+	}
+
 	if mbox.Messages == 0 {
-		log.Fatal("No message in mailbox")
+		WriteLog(logError, "#13 getMails no messages in inbox ")
+		return nil
 	}
 
 	seqSet := new(imap.SeqSet)
-	for i := uint32(0); i < 10; i++ {
-		currNum := mbox.Messages - i
-		if currNum < 0 {
-			break
-		}
+	maxMessages := uint32(10)
+	if mbox.Messages < 10 {
+		maxMessages = mbox.Messages
+	}
+	for i := uint32(0); i < maxMessages; i++ {
 		seqSet.AddNum(mbox.Messages - i)
 	}
 
@@ -53,7 +61,7 @@ func getMails(mClient *client.Client, messages chan *imap.Message) *imap.BodySec
 	items := []imap.FetchItem{imap.FetchEnvelope, imap.FetchFlags, imap.FetchInternalDate, section.FetchItem()}
 	go func() {
 		if err := mClient.Fetch(seqSet, items, messages); err != nil {
-			log.Fatal(err)
+			WriteLog(critical, "#14 couldnt fetch messages: "+err.Error())
 		}
 	}()
 	return section
@@ -67,12 +75,14 @@ type email struct {
 func getMailContent(msg *imap.Message, section *imap.BodySectionName) *email {
 	if msg == nil {
 		fmt.Println("msg is nil")
+		WriteLog(logError, "#15 getMailContent msg is nil")
 		return nil
 	}
 
 	r := msg.GetBody(section)
 	if r == nil {
 		fmt.Println("reader is nli")
+		WriteLog(logError, "#16 getMailContent r (reader) is nil")
 		return nil
 	}
 
@@ -81,6 +91,7 @@ func getMailContent(msg *imap.Message, section *imap.BodySectionName) *email {
 	mr, err := mail.CreateReader(r)
 	if err != nil {
 		fmt.Println(err.Error())
+		WriteLog(logError, "#17 getMailContent create reader err: "+err.Error())
 		return nil
 	}
 
@@ -115,6 +126,7 @@ func getMailContent(msg *imap.Message, section *imap.BodySectionName) *email {
 			break
 		} else if err != nil {
 			log.Println(err.Error())
+			WriteLog(critical, "#18 getMailContent nextPart err: "+err.Error())
 			break
 		}
 

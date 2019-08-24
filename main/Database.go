@@ -49,6 +49,10 @@ func deleteRoomAndEmailByRoomID(roomID string) {
 	checkErr(err)
 	stmt1.Exec(roomID)
 
+	stmt3, err := db.Prepare("DELETE FROM mail WHERE room=(SELECT pk_id FROM rooms WHERE roomID=?)")
+	checkErr(err)
+	stmt3.Exec(roomID)
+
 	stmt2, err := db.Prepare("DELETE FROM rooms WHERE roomID=?")
 	checkErr(err)
 	stmt2.Exec(roomID)
@@ -89,7 +93,8 @@ func insertNewRoom(roomID string, imapAccountID, mailCheckInterval int) int64 {
 	checkErr(err)
 	res, err := stmt.Exec(roomID, imapAccountID, mailCheckInterval)
 	if err != nil {
-		log.Fatal(err)
+		WriteLog(critical, "#19 insertNewRoom could not execute err: "+err.Error())
+		return -1
 	}
 	id, _ := res.LastInsertId()
 	return id
@@ -113,6 +118,7 @@ func insertimapAccountount(host, username, password string, ignoreSSl bool) (id 
 	stmt, err := db.Prepare("INSERT INTO imapAccounts (host, username, password, ignoreSSL) VALUES(?,?,?,?)")
 	success = true
 	if !checkErr(err) {
+		WriteLog(critical, "#20 insertimapAccountount could not execute err: "+err.Error())
 		success = false
 	}
 	ign := 0
@@ -121,10 +127,12 @@ func insertimapAccountount(host, username, password string, ignoreSSl bool) (id 
 	}
 	a, er := stmt.Exec(host, username, base64.StdEncoding.EncodeToString([]byte(password)), ign)
 	if !checkErr(er) {
+		WriteLog(critical, "#21 insertimapAccountount could not execute err: "+err.Error())
 		success = false
 	}
 	id, e := a.LastInsertId()
 	if !checkErr(e) {
+		WriteLog(critical, "#22 insertimapAccountount could not get lastID err: "+err.Error())
 		success = false
 	}
 	return id, success

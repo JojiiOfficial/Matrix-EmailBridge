@@ -28,6 +28,7 @@ func initDB() error {
 	return era
 }
 
+//returns true if app should exit
 func initCfg() bool {
 	viper.SetConfigType("json")
 	viper.SetConfigFile("./cfg.json")
@@ -50,11 +51,11 @@ func initCfg() bool {
 func loginMatrix() {
 	client, err := mautrix.NewClient(viper.GetString("matrixserver"), viper.GetString("matrixuserid"), viper.GetString("matrixaccesstoken"))
 	if err != nil {
-		log.Fatal(err)
+		WriteLog(critical, "#02 loggin into matrix account: "+err.Error())
 	} else {
+		WriteLog(success, "logged into matrix")
 		fmt.Println("logged into matrix successfully")
 	}
-	client.SetDisplayName("jojiiMail")
 	matrixClient = client
 
 	store := NewFileStore("store.json")
@@ -123,8 +124,8 @@ func startMatrixSync(client *mautrix.Client) {
 					if accountType == "imap" {
 						isInUse, err := isImapAccountAlreadyInUse(username)
 						if err != nil {
-							client.SendText(roomID, "Something went wrong!")
-							log.Fatal(err)
+							client.SendText(roomID, "Something went wrong! Contact the admin. Errorcode: #03")
+							WriteLog(critical, "#03 checking isImapAccountAlreadyInUse: "+err.Error())
 							return
 						}
 
@@ -135,17 +136,23 @@ func startMatrixSync(client *mautrix.Client) {
 
 						mclient, err := loginMail(host, username, password, ignoreSSlCert)
 						if mclient != nil && err == nil {
-							id, success := insertimapAccountount(host, username, password, ignoreSSlCert)
-							if !success {
+							id, succes := insertimapAccountount(host, username, password, ignoreSSlCert)
+							if !succes {
 								client.SendText(roomID, "sth went wrong. Contact your admin")
 								return
 							}
 							defaultMailSyncInterval := viper.GetInt("defuaultmailCheckInterval")
 							newRoomID := insertNewRoom(roomID, int(id), defaultMailSyncInterval)
+							if newRoomID == -1 {
+								client.SendText(roomID, "An error occured! contact your admin! Errorcode: #19")
+								return
+							}
 							client.SendText(roomID, "Bridge created successfully!\r\nYou should delete the message containing your credentials ;)")
 							startMailListener(imapAccountount{host, username, password, roomID, ignoreSSlCert, int(newRoomID), defaultMailSyncInterval, true})
+							WriteLog(success, "Created new bridge and started maillistener")
 						} else {
-							client.SendText(roomID, "Error creating bridge:\r\n"+err.Error())
+							client.SendText(roomID, "Error creating bridge! Errorcode: #04")
+							WriteLog(logError, "#04 creating bridge: "+err.Error())
 						}
 					} else {
 						client.SendText(roomID, "Not implemented yet!")
@@ -154,14 +161,15 @@ func startMatrixSync(client *mautrix.Client) {
 			}
 		} else {
 			if err != nil {
-				client.SendText(roomID, "sth went wrong. Contact your admin")
+				WriteLog(critical, "#05 receiving message: "+err.Error())
+				client.SendText(roomID, "sth went wrong. Contact your admin. Errorcode: #05")
 			} else {
 				switch message {
 				case "!ping":
 					{
 						roomData, err := getRoomInfo(roomID)
 						if err != nil {
-							fmt.Println(err.Error())
+							WriteLog(logError, "#06 getting roomdata: "+err.Error())
 							client.SendText(roomData, "An server-error occured")
 							return
 						}
@@ -189,11 +197,14 @@ func startMatrixSync(client *mautrix.Client) {
 
 	err := client.Sync()
 	if err != nil {
+		WriteLog(logError, "#07 Syncing: "+err.Error())
 		fmt.Println(err)
 	}
 }
 
 func main() {
+	initLogger()
+
 	exit := initCfg()
 	if exit {
 		return
@@ -202,7 +213,9 @@ func main() {
 	er := initDB()
 	if er == nil {
 		createAllTables()
+		WriteLog(success, "create tables")
 	} else {
+		WriteLog(critical, "#08 creating tables: "+er.Error())
 		panic(er)
 	}
 
@@ -221,18 +234,20 @@ func startMailSchedeuler() {
 	listenerMap = make(map[string]chan bool)
 	accounts, err := getimapAccounts()
 	if err != nil {
+		WriteLog(critical, "#09 reading accounts: "+err.Error())
 		log.Panic(err)
 	}
 	for i := 0; i < len(accounts); i++ {
 		go startMailListener(accounts[i])
 	}
+	WriteLog(success, "started "+strconv.Itoa(len(accounts))+" mail listener")
 }
 
 func startMailListener(account imapAccountount) {
 	quit := make(chan bool)
 	mClient, err := loginMail(account.host, account.username, account.password, account.ignoreSSL)
 	if err != nil {
-		log.Println(err.Error())
+		WriteLog(logError, "#10 email account error: "+err.Error())
 		matrixClient.SendText(account.roomID, "Error:\r\n"+err.Error()+"\r\n\r\nBecause of this error you have to login to your account again using !setup")
 		deleteRoomAndEmailByRoomID(account.roomID)
 		return
@@ -256,6 +271,13 @@ func fetchNewMails(mClient *client.Client, account *imapAccountount) {
 	messages := make(chan *imap.Message, 1)
 	section := getMails(mClient, messages)
 
+	if section == nil {
+		if account.silence {
+			account.silence = false
+		}
+		return
+	}
+
 	for msg := range messages {
 		mailID := msg.Envelope.Subject + strconv.Itoa(int(msg.InternalDate.Unix()))
 		if has, err := dbContainsMail(mailID, account.roomPKID); !has && err == nil {
@@ -264,6 +286,7 @@ func fetchNewMails(mClient *client.Client, account *imapAccountount) {
 				handleMail(msg, section, *account)
 			}
 		} else if err != nil {
+			WriteLog(logError, "#11 dbContains mail: "+err.Error())
 			fmt.Println(err.Error())
 		}
 	}
@@ -274,7 +297,6 @@ func fetchNewMails(mClient *client.Client, account *imapAccountount) {
 
 func handleMail(mail *imap.Message, section *imap.BodySectionName, account imapAccountount) {
 	content := getMailContent(mail, section)
-	fmt.Println("new Mail:")
 	fmt.Println(content.body)
 	matrixClient.SendText(account.roomID, "You've got a new Email FROM "+content.from)
 	matrixClient.SendText(account.roomID, "Subject: "+content.subject)
