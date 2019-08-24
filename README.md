@@ -6,7 +6,7 @@ A matrix-bridge written in GOlang to let you read your emails in matrix
 This bot is currently in development. Its not 100% tested</code>
 
 ## Install
-Just run <code>go get</code> to fetch the required dependencies and <code>go build</code> inside of the folder and execute the created binary. Then you have to adjust the config file to make it work with your matrix server.
+Just run <code>go get</code> to fetch the required dependencies and <code>go build</code> inside the folder and execute the created binary. Then you have to adjust the config file to make it work with your matrix server.
 Invite your bot into a private room, it will join automatically. If everyting is set up correctly, you can bridge the room by typing !login. Then you just have to follow the instructions. Typing !help shows a list with available commands.<br>Creating a new private room with the bot lets you add a differen email account.<br>
 
 ## Note
