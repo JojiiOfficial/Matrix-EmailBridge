@@ -269,7 +269,6 @@ func fetchNewMails(mClient *client.Client, account *imapAccountount) {
 	}
 	if account.silence {
 		account.silence = false
-		setRoomSilence(account.roomID, false)
 	}
 }
 

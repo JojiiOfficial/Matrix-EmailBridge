@@ -64,19 +64,6 @@ type email struct {
 	date                                time.Time
 }
 
-func setRoomSilence(roomID string, silence bool) {
-	stmt, err := db.Prepare("UPDATE rooms SET silence=? WHERE roomID=?")
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-	sil := 0
-	if silence {
-		sil = 1
-	}
-	stmt.Exec(sil, roomID)
-}
-
 func getMailContent(msg *imap.Message, section *imap.BodySectionName) *email {
 	if msg == nil {
 		fmt.Println("msg is nil")
