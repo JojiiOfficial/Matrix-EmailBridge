@@ -1,5 +1,5 @@
 # Matrix-EmailBot
-A matrix-bridge written in GOlang to read your emails in matrix
+A matrix-bridge written in GOlang to let you read your emails in matrix
 
 
 ## Information
