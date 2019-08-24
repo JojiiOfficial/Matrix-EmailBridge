@@ -8,7 +8,7 @@ type table struct {
 
 var tables = []table{
 	table{"mail", "mail TEXT, room INTEGER"},
-	table{"rooms", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, roomID TEXT, imapAccount INTEGER DEFAULT -1, smtpAccount INTEGER DEFAULT -1, mailCheckInterval INTEGER"},
+	table{"rooms", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, roomID TEXT, imapAccount INTEGER DEFAULT -1, smtpAccount INTEGER DEFAULT -1, mailCheckInterval INTEGER, silence INTEGER DEFAULT 0"},
 	table{"imapAccounts", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, host TEXT, username TEXT, password TEXT, ignoreSSL INTEGER"}}
 
 func insertEmail(email string, roomPK int) error {
@@ -138,6 +138,7 @@ type imapAccountount struct {
 	host, username, password, roomID string
 	ignoreSSL                        bool
 	roomPKID, mailCheckInterval      int
+	silence                          bool
 }
 
 func isImapAccountAlreadyInUse(email string) (bool, error) {
@@ -155,7 +156,7 @@ func isImapAccountAlreadyInUse(email string) (bool, error) {
 }
 
 func getimapAccounts() ([]imapAccountount, error) {
-	rows, err := db.Query("SELECT host, username, password, ignoreSSL, rooms.roomID, rooms.pk_id, rooms.mailCheckInterval FROM imapAccounts INNER JOIN rooms ON (rooms.imapAccount = imapAccounts.pk_id)")
+	rows, err := db.Query("SELECT host, username, password, ignoreSSL, rooms.roomID, rooms.pk_id, rooms.mailCheckInterval, rooms.silence FROM imapAccounts INNER JOIN rooms ON (rooms.imapAccount = imapAccounts.pk_id)")
 	if !checkErr(err) {
 		return nil, err
 	}
@@ -163,13 +164,18 @@ func getimapAccounts() ([]imapAccountount, error) {
 	var list []imapAccountount
 	var host, username, password, roomID string
 	var ignoreSSL, roomPKID, mailCheckInterval int
+	var silence int
 	for rows.Next() {
-		rows.Scan(&host, &username, &password, &ignoreSSL, &roomID, &roomPKID, &mailCheckInterval)
+		rows.Scan(&host, &username, &password, &ignoreSSL, &roomID, &roomPKID, &mailCheckInterval, &silence)
 		ignssl := false
 		if ignoreSSL == 1 {
 			ignssl = true
 		}
-		list = append(list, imapAccountount{host, username, password, roomID, ignssl, roomPKID, mailCheckInterval})
+		silc := false
+		if silence == 1 {
+			silc = true
+		}
+		list = append(list, imapAccountount{host, username, password, roomID, ignssl, roomPKID, mailCheckInterval, silc})
 	}
 	return list, nil
 }

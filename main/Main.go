@@ -143,7 +143,7 @@ func startMatrixSync(client *mautrix.Client) {
 							defaultMailSyncInterval := viper.GetInt("defuaultmailCheckInterval")
 							newRoomID := insertNewRoom(roomID, int(id), defaultMailSyncInterval)
 							client.SendText(roomID, "Bridge created successfully!")
-							startMailListener(imapAccountount{host, username, password, roomID, ignoreSSlCert, int(newRoomID), defaultMailSyncInterval})
+							startMailListener(imapAccountount{host, username, password, roomID, ignoreSSlCert, int(newRoomID), defaultMailSyncInterval, true})
 						} else {
 							client.SendText(roomID, "Error creating bridge:\r\n"+err.Error())
 						}
@@ -245,14 +245,14 @@ func startMailListener(account imapAccountount) {
 				return
 			default:
 				fmt.Println("check for " + account.username)
-				fetchNewMails(mClient, account)
+				fetchNewMails(mClient, &account)
 				time.Sleep((time.Duration)(account.mailCheckInterval) * time.Second)
 			}
 		}
 	}()
 }
 
-func fetchNewMails(mClient *client.Client, account imapAccountount) {
+func fetchNewMails(mClient *client.Client, account *imapAccountount) {
 	messages := make(chan *imap.Message, 1)
 	section := getMails(mClient, messages)
 
@@ -260,10 +260,16 @@ func fetchNewMails(mClient *client.Client, account imapAccountount) {
 		mailID := msg.Envelope.Subject + strconv.Itoa(int(msg.InternalDate.Unix()))
 		if has, err := dbContainsMail(mailID, account.roomPKID); !has && err == nil {
 			go insertEmail(mailID, account.roomPKID)
-			handleMail(msg, section, account)
+			if !account.silence {
+				handleMail(msg, section, *account)
+			}
 		} else if err != nil {
-			log.Panic(err)
+			fmt.Println(err.Error())
 		}
+	}
+	if account.silence {
+		account.silence = false
+		setRoomSilence(account.roomID, false)
 	}
 }
 
