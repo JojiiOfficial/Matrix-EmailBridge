@@ -13,7 +13,8 @@ type table struct {
 var tables = []table{
 	table{"mail", "mail TEXT, room INTEGER"},
 	table{"rooms", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, roomID TEXT, imapAccount INTEGER DEFAULT -1, smtpAccount INTEGER DEFAULT -1, mailCheckInterval INTEGER"},
-	table{"imapAccounts", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, host TEXT, username TEXT, password TEXT, ignoreSSL INTEGER, mailbox TEXT"}}
+	table{"imapAccounts", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, host TEXT, username TEXT, password TEXT, ignoreSSL INTEGER, mailbox TEXT"},
+	table{"smtpAccounts", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, host TEXT, port int, username TEXT, password TEXT, ignoreSSL INTEGER"}}
 
 func insertEmail(email string, roomPK int) error {
 	if val, err := dbContainsMail(email, roomPK); val && err == nil {
@@ -56,6 +57,10 @@ func deleteRoomAndEmailByRoomID(roomID string) {
 	stmt2, err := db.Prepare("DELETE FROM rooms WHERE roomID=?")
 	checkErr(err)
 	stmt2.Exec(roomID)
+
+	stmt4, err := db.Prepare("DELETE FROM smtpAccounts WHERE pk_id=(SELECT smtpAccount FROM rooms WHERE roomID=?)")
+	checkErr(err)
+	stmt4.Exec(roomID)
 }
 
 func createTable(name, values string) error {
@@ -71,33 +76,87 @@ func createAllTables() {
 }
 
 func getRoomInfo(roomID string) (string, error) {
-	stmt, err := db.Prepare("SELECT imapAccounts.username FROM rooms LEFT JOIN imapAccounts ON (imapAccounts.pk_id = rooms.imapAccount) WHERE roomID=?")
+	stmt, err := db.Prepare("SELECT imapAccounts.username, smtpAccounts.username FROM rooms LEFT JOIN imapAccounts ON (imapAccounts.pk_id = rooms.imapAccount) LEFT JOIN smtpAccounts ON (smtpAccounts.pk_id = rooms.smtpAccount)  WHERE roomID=?")
 	if err != nil {
 		return "", err
 	}
 	defer stmt.Close()
 	var imapAccount, smtpAccount string
-	_ = smtpAccount
-	err = stmt.QueryRow(roomID).Scan(&imapAccount)
+	err = stmt.QueryRow(roomID).Scan(&imapAccount, &smtpAccount)
 	if err != nil {
 		return "", err
 	}
 
-	infoText := "IMAP account: " + imapAccount + "\r\nSMTP account: " + "not implemented yet"
+	infoText := "IMAP account: " + imapAccount + "\r\nSMTP account: " + smtpAccount
 
 	return infoText, nil
 }
 
-func insertNewRoom(roomID, mailbox string, imapAccountID, mailCheckInterval int) int64 {
-	stmt, err := db.Prepare("INSERT INTO rooms (roomID, imapAccount, mailCheckInterval) VALUES(?,?,?)")
+func getRoomPKID(roomID string) (int, error) {
+	stmt, err := db.Prepare("SELECT pk_id FROM rooms WHERE roomID=?")
+	if err != nil {
+		return -1, err
+	}
+	defer stmt.Close()
+	var id int
+	err = stmt.QueryRow(roomID).Scan(&id)
+	if err != nil {
+		return -1, err
+	}
+
+	return id, nil
+}
+
+func getRoomAccounts(roomID string) (imapAccount, smtpAccount int, err error) {
+	imapAccount = -1
+	smtpAccount = -1
+	stmt, err := db.Prepare("SELECT imapAccount, smtpAccount FROM rooms WHERE roomID=?")
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	err = stmt.QueryRow(roomID).Scan(&imapAccount, &smtpAccount)
+	if err != nil {
+		err = nil
+		return
+	}
+	return
+}
+
+func insertNewRoom(roomID string, mailCheckInterval int) int64 {
+	stmt, err := db.Prepare("INSERT INTO rooms (roomID, mailCheckInterval) VALUES(?,?)")
 	checkErr(err)
-	res, err := stmt.Exec(roomID, imapAccountID, mailCheckInterval)
+	res, err := stmt.Exec(roomID, mailCheckInterval)
 	if err != nil {
 		WriteLog(critical, "#19 insertNewRoom could not execute err: "+err.Error())
 		return -1
 	}
 	id, _ := res.LastInsertId()
 	return id
+}
+
+func saveImapAcc(roomID string, account int) error {
+	stmt, err := db.Prepare("UPDATE rooms SET imapAccount=? WHERE roomID=?")
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(account, roomID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func saveSMTPAcc(roomID string, account int) error {
+	stmt, err := db.Prepare("UPDATE rooms SET smtpAccount=? WHERE roomID=?")
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(account, roomID)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func hasRoom(roomID string) (bool, error) {
@@ -112,6 +171,29 @@ func hasRoom(roomID string) (bool, error) {
 		return false, err
 	}
 	return (count > 0), nil
+}
+
+func insertSMTPAccountount(host string, port int, username, password string, ignoreSSL bool) (id int64, err error) {
+	id = -1
+	stmt, err := db.Prepare("INSERT INTO smtpAccounts (host, port, username, password, ignoreSSL) VALUES(?,?,?,?,?)")
+	if !checkErr(err) {
+		WriteLog(critical, "#31 insertimapAccountount could not execute err: "+err.Error())
+		return
+	}
+	ign := 0
+	if ignoreSSL {
+		ign = 1
+	}
+	a, er := stmt.Exec(host, port, username, base64.StdEncoding.EncodeToString([]byte(password)), ign)
+	if !checkErr(er) {
+		WriteLog(critical, "#32 insertimapAccountount could not execute err: "+err.Error())
+		return
+	}
+	id, e := a.LastInsertId()
+	if !checkErr(e) {
+		WriteLog(critical, "#33 insertimapAccountount could not get lastID err: "+err.Error())
+	}
+	return id, nil
 }
 
 func insertimapAccountount(host, username, password, mailbox string, ignoreSSl bool) (id int64, success bool) {
@@ -155,6 +237,20 @@ type imapAccountount struct {
 
 func isImapAccountAlreadyInUse(email string) (bool, error) {
 	stmt, err := db.Prepare("SELECT COUNT(pk_id) FROM imapAccounts WHERE username=?")
+	if err != nil {
+		return false, err
+	}
+	defer stmt.Close()
+	var count int
+	err = stmt.QueryRow(email).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return (count > 0), nil
+}
+
+func isSMTPAccountAlreadyInUse(email string) (bool, error) {
+	stmt, err := db.Prepare("SELECT COUNT(pk_id) FROM smtpAccounts WHERE username=?")
 	if err != nil {
 		return false, err
 	}

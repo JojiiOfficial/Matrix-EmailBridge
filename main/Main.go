@@ -94,113 +94,183 @@ func startMatrixSync(client *mautrix.Client) {
 		message := evt.Content.Body
 		roomID := evt.RoomID
 		//commands only available in room not bridged to email
-		if has, err := hasRoom(roomID); !has && err == nil {
-			if message == "!login" {
-				client.SendText(roomID, "Okay send me the data of your server(IMAPs) in the given order, splitted by a comma(,)\r\n!setup imap, host:port, username/email, password, mailbox, ignoreSSL\r\n\r\nExample: \r\n!setup imap, host.com:993, mail@host.com, w0rdp4ss, INBOX, false")
-			} else if strings.HasPrefix(message, "!setup") {
-				data := strings.Trim(strings.ReplaceAll(message, "!setup", ""), " ")
-				s := strings.Split(data, ",")
-				for i := 0; i < len(s); i++ {
-					s[i] = strings.Trim(s[i], " ")
+		if message == "!login" {
+			client.SendText(roomID, "Okay send me the data of your server(at first IMAPs) in the given order, splitted by a comma(,)\r\n!setup imap, host:port, username/email, password, mailbox, ignoreSSL\r\n!setup smtp, host, port, email, password, ignoreSSL\r\n\r\nExample: \r\n!setup imap, host.com:993, mail@host.com, w0rdp4ss, INBOX, false\r\nor\r\n!setup smtp, host.com:587, mail@host.com, w0rdp4ss, false")
+		} else if strings.HasPrefix(message, "!setup") {
+			data := strings.Trim(strings.ReplaceAll(message, "!setup", ""), " ")
+			s := strings.Split(data, ",")
+			for i := 0; i < len(s); i++ {
+				s[i] = strings.Trim(s[i], " ")
+			}
+			if len(s) < 4 || len(s) > 6 {
+				client.SendText(roomID, "Wrong syntax :/\r\nExample: \r\n!setup imap, host.com:993, mail@host.com, w0rdp4ss, INBOX, false\r\nor\r\n"+
+					"!setup smtp, host.com:587, mail@host.com, w0rdp4ss, false")
+			} else {
+				accountType := s[0]
+				if strings.ToLower(accountType) != "imap" && strings.ToLower(accountType) != "smtp" {
+					client.SendText(roomID, "What? you can setup 'imap' and 'smtp', not \""+accountType+"\"")
+					return
 				}
-				if len(s) < 4 || len(s) > 6 {
-					client.SendText(roomID, "Wrong syntax :/\r\nExample: \r\n!setup imap, host.com:993, mail@host.com, w0rdp4ss, INBOX, false")
-				} else {
-					accountType := s[0]
-					if strings.ToLower(accountType) != "imap" && strings.ToLower(accountType) != "smtp" {
-						client.SendText(roomID, "What? you can setup 'imap' and 'smtp', not \""+accountType+"\"")
+				host := s[1]
+				username := s[2]
+				password := s[3]
+				ignoreSSlCert := false
+				mailbox := "INBOX"
+				if len(s) >= 5 {
+					mailbox = s[4]
+				}
+				var err error
+				if len(s) == 6 {
+					ignoreSSlCert, err = strconv.ParseBool(s[5])
+					if err != nil {
+						fmt.Println(err.Error())
+						ignoreSSlCert = false
+					}
+				}
+				defaultMailSyncInterval := viper.GetInt("defuaultmailCheckInterval")
+				imapAccID, smtpAccID, erro := getRoomAccounts(roomID)
+				if erro != nil {
+					client.SendText(roomID, "Something went wrong! Contact the admin. Errorcode: #37")
+					WriteLog(critical, "#37 checking getRoomAccounts: "+erro.Error())
+					return
+				}
+				if accountType == "imap" {
+					if imapAccID != -1 {
+						client.SendText(roomID, "IMAP account already existing. Create a new room if you want to use a different account!")
 						return
 					}
-					host := s[1]
-					username := s[2]
-					password := s[3]
-					ignoreSSlCert := false
-					mailbox := "INBOX"
-					if len(s) >= 5 {
-						mailbox = s[4]
+					isInUse, err := isImapAccountAlreadyInUse(username)
+					if err != nil {
+						client.SendText(roomID, "Something went wrong! Contact the admin. Errorcode: #03")
+						WriteLog(critical, "#03 checking isImapAccountAlreadyInUse: "+err.Error())
+						return
 					}
-					if len(s) == 6 {
-						ignoreSSlCert, err = strconv.ParseBool(s[5])
-						if err != nil {
-							fmt.Println(err.Error())
-							ignoreSSlCert = false
-						}
+
+					if isInUse {
+						client.SendText(roomID, "This email is already in Use! You cannot use your email twice!")
+						return
 					}
-					if accountType == "imap" {
-						isInUse, err := isImapAccountAlreadyInUse(username)
-						if err != nil {
-							client.SendText(roomID, "Something went wrong! Contact the admin. Errorcode: #03")
-							WriteLog(critical, "#03 checking isImapAccountAlreadyInUse: "+err.Error())
-							return
-						}
 
-						if isInUse {
-							client.SendText(roomID, "This email is already in Use! You cannot use your email twice!")
-							return
-						}
-
-						go func() {
-							mclient, err := loginMail(host, username, password, ignoreSSlCert)
-							if mclient != nil && err == nil {
-								id, succes := insertimapAccountount(host, username, password, mailbox, ignoreSSlCert)
-								if !succes {
-									client.SendText(roomID, "sth went wrong. Contact your admin")
-									return
-								}
-								defaultMailSyncInterval := viper.GetInt("defuaultmailCheckInterval")
-								newRoomID := insertNewRoom(roomID, mailbox, int(id), defaultMailSyncInterval)
-								if newRoomID == -1 {
-									client.SendText(roomID, "An error occured! contact your admin! Errorcode: #19")
-									return
-								}
-								client.SendText(roomID, "Bridge created successfully!\r\nYou should delete the message containing your credentials ;)")
-								startMailListener(imapAccountount{host, username, password, roomID, mailbox, ignoreSSlCert, int(newRoomID), defaultMailSyncInterval, true})
-								WriteLog(success, "Created new bridge and started maillistener")
-							} else {
-								client.SendText(roomID, "Error creating bridge! Errorcode: #04\r\nReason: "+err.Error())
-								WriteLog(logError, "#04 creating bridge: "+err.Error())
+					go func() {
+						mclient, err := loginMail(host, username, password, ignoreSSlCert)
+						if mclient != nil && err == nil {
+							has, er := hasRoom(roomID)
+							if er != nil {
+								client.SendText(roomID, "An error occured! contact your admin! Errorcode: #25")
+								WriteLog(critical, "checking imapAcc #25: "+er.Error())
+								return
 							}
-						}()
-					} else if accountType == "smtp" {
-						///TODO
-					} else {
-						client.SendText(roomID, "Not implemented yet!")
+							var newRoomID int64
+							if !has {
+								newRoomID = insertNewRoom(roomID, defaultMailSyncInterval)
+								if newRoomID == -1 {
+									client.SendText(roomID, "An error occured! contact your admin! Errorcode: #26")
+									WriteLog(critical, "checking insertNewRoom #26: "+er.Error())
+									return
+								}
+							} else {
+								id, err := getRoomPKID(evt.RoomID)
+								if err != nil {
+									WriteLog(critical, "checking getRoomPKID #27: "+er.Error())
+									client.SendText(roomID, "An error occured! contact your admin! Errorcode: #27")
+									return
+								}
+								newRoomID = int64(id)
+							}
+							imapID, succes := insertimapAccountount(host, username, password, mailbox, ignoreSSlCert)
+							if !succes {
+								client.SendText(roomID, "sth went wrong. Contact your admin")
+								return
+							}
+							err = saveImapAcc(roomID, int(imapID))
+							if err != nil {
+								WriteLog(critical, "saveImapAcc #35 : "+err.Error())
+								client.SendText(roomID, "sth went wrong. Contact you admin! Errorcode: #35")
+								return
+							}
+							client.SendText(roomID, "Bridge created successfully!\r\nYou should delete the message containing your credentials ;)")
+							startMailListener(imapAccountount{host, username, password, roomID, mailbox, ignoreSSlCert, int(newRoomID), defaultMailSyncInterval, true})
+							WriteLog(success, "Created new bridge and started maillistener")
+						} else {
+							client.SendText(roomID, "Error creating bridge! Errorcode: #04\r\nReason: "+err.Error())
+							WriteLog(logError, "#04 creating bridge: "+err.Error())
+						}
+					}()
+				} else if accountType == "smtp" {
+					if smtpAccID != -1 {
+						client.SendText(roomID, "SMTP account already existing. Create a new room if you want to use a different account!")
+						return
 					}
-				}
-			}
-		} else {
-			if err != nil {
-				WriteLog(critical, "#05 receiving message: "+err.Error())
-				client.SendText(roomID, "sth went wrong. Contact your admin. Errorcode: #05")
-			} else {
-				switch message {
-				case "!ping":
-					{
-						roomData, err := getRoomInfo(roomID)
-						if err != nil {
-							WriteLog(logError, "#06 getting roomdata: "+err.Error())
-							client.SendText(roomData, "An server-error occured")
+					isInUse, err := isSMTPAccountAlreadyInUse(username)
+					if err != nil {
+						client.SendText(roomID, "Something went wrong! Contact the admin. Errorcode: #24")
+						WriteLog(critical, "#24 checking isSMTPAccountAlreadyInUse: "+err.Error())
+						return
+					}
+					if isInUse {
+						client.SendText(roomID, "This smtp-username is already in Use! You cannot use your email twice!")
+						return
+					}
+
+					go func() {
+						has, er := hasRoom(roomID)
+						if er != nil {
+							client.SendText(roomID, "An error occured! contact your admin! Errorcode: #28")
+							WriteLog(critical, "checking imapAcc #28: "+er.Error())
 							return
 						}
-						client.SendText(roomID, roomData)
-					}
-				case "!help":
-					{
-						helpText := "-------- Help --------\r\n"
-						helpText += "!setup imap/smtp, host:port, username(em@ail.com), password, ignoreSSLcert(true/false) - creates a bridge for this room\r\n"
-						helpText += "!ping - gets information about the email bridge for this room\r\n"
-						helpText += "!help - shows this command help overview\r\n"
-						client.SendText(roomID, helpText)
-					}
-				default:
-					{
-						if message == "!login" || strings.HasPrefix(message, "!setup") {
-							client.SendText(roomID, "This room is already assigned to a emailaddress. Create a new room if you want to bridge a new emailaccount")
+						var newRoomID int64
+						if !has {
+							newRoomID = insertNewRoom(roomID, defaultMailSyncInterval)
+							if newRoomID == -1 {
+								client.SendText(roomID, "An error occured! contact your admin! Errorcode: #29")
+								WriteLog(critical, "checking insertNewRoom #29: "+er.Error())
+								return
+							}
+						} else {
+							id, err := getRoomPKID(evt.RoomID)
+							if err != nil {
+								WriteLog(critical, "checking getRoomPKID #30: "+er.Error())
+								client.SendText(roomID, "An error occured! contact your admin! Errorcode: #30")
+								return
+							}
+							newRoomID = int64(id)
 						}
-					}
+						port := 587
+						if !strings.Contains(host, ":") {
+							client.SendText(roomID, "No port specified! Using 587")
+						}
+						smtpID, err := insertSMTPAccountount(host, port, username, password, ignoreSSlCert)
+						if err != nil {
+							client.SendText(roomID, "sth went wrong. Contact your admin")
+							return
+						}
+						err = saveSMTPAcc(roomID, int(smtpID))
+						if err != nil {
+							WriteLog(critical, "saveSMTPAcc #36 : "+err.Error())
+							client.SendText(roomID, "sth went wrong. Contact you admin! Errorcode: #34")
+							return
+						}
+						client.SendText(roomID, "SMTP data saved! If the given data is incorrect, you have to set them again if you want to send an email")
+					}()
+				} else {
+					client.SendText(roomID, "Not implemented yet!")
 				}
-
 			}
+		} else if message == "!help" {
+			helpText := "-------- Help --------\r\n"
+			helpText += "!setup imap/smtp, host:port, username(em@ail.com), password, ignoreSSLcert(true/false) - creates a bridge for this room\r\n"
+			helpText += "!ping - gets information about the email bridge for this room\r\n"
+			helpText += "!help - shows this command help overview\r\n"
+			client.SendText(roomID, helpText)
+		} else if message == "!ping" {
+			roomData, err := getRoomInfo(roomID)
+			if err != nil {
+				WriteLog(logError, "#06 getting roomdata: "+err.Error())
+				client.SendText(roomData, "An server-error occured")
+				return
+			}
+			client.SendText(roomID, roomData)
 		}
 	})
 
