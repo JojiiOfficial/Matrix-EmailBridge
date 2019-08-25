@@ -24,4 +24,5 @@ Note: you should change the permissions of the <code>cfg.json</code> and <code>d
 - [X]  Detailed error codes/logging 
 - [X]  Use custom mailbox instead of INBOX
 - [X]  Send emails
+- [X]  Use markdown for writing emails (optional)
 - [ ]  Use commands to move/delete emails

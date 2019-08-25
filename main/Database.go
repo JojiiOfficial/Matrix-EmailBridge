@@ -13,6 +13,7 @@ type table struct {
 type emailTemp struct {
 	pkID                            int
 	roomID, receiver, subject, body string
+	markdown                        bool
 }
 
 type imapAccountount struct {
@@ -33,7 +34,7 @@ var tables = []table{
 	table{"rooms", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, roomID TEXT, imapAccount INTEGER DEFAULT -1, smtpAccount INTEGER DEFAULT -1, mailCheckInterval INTEGER"},
 	table{"imapAccounts", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, host TEXT, username TEXT, password TEXT, ignoreSSL INTEGER, mailbox TEXT"},
 	table{"smtpAccounts", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, host TEXT, port int, username TEXT, password TEXT, ignoreSSL INTEGER"},
-	table{"emailWritingTemp", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, roomID TEXT, receiver TEXT, subject TEXT DEFAULT ' ', body TEXT DEFAULT ' '"}}
+	table{"emailWritingTemp", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, roomID TEXT, receiver TEXT, subject TEXT DEFAULT ' ', body TEXT DEFAULT ' ', markdown INTEGER"}}
 
 func insertEmail(email string, roomPK int) error {
 	if val, err := dbContainsMail(email, roomPK); val && err == nil {
@@ -88,18 +89,22 @@ func newWritingTemp(roomID, receiver string) error {
 }
 
 func getWritingTemp(roomID string) (*emailTemp, error) {
-	stmt, err := db.Prepare("SELECT pk_id, roomID, receiver, subject, body FROM emailWritingTemp WHERE roomID=?")
+	stmt, err := db.Prepare("SELECT pk_id, roomID, receiver, subject, body, markdown FROM emailWritingTemp WHERE roomID=?")
 	if err != nil {
 		return nil, err
 	}
 	defer stmt.Close()
-	var pkID int
+	var pkID, markdown int
 	var rID, receiver, subject, body string
-	err = stmt.QueryRow(roomID).Scan(&pkID, &rID, &receiver, &subject, &body)
+	err = stmt.QueryRow(roomID).Scan(&pkID, &rID, &receiver, &subject, &body, &markdown)
 	if err != nil {
 		return nil, err
 	}
-	return &emailTemp{pkID, rID, receiver, subject, body}, nil
+	mrkdwn := false
+	if markdown == 1 {
+		mrkdwn = true
+	}
+	return &emailTemp{pkID, rID, receiver, subject, body, mrkdwn}, nil
 }
 
 func saveWritingtemp(roomID, key, value string) error {

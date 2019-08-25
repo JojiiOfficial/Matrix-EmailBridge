@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gomarkdown/markdown"
+
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
 	_ "github.com/emersion/go-imap/client"
@@ -45,6 +47,7 @@ func initCfg() bool {
 		viper.SetDefault("matrixaccesstoken", "hlaksdjhaslkfslkj")
 		viper.SetDefault("matrixuserid", "@m:matrix.org")
 		viper.SetDefault("defuaultmailCheckInterval", 10)
+		viper.SetDefault("markdownEnabledByDefault", true)
 		viper.WriteConfigAs("./cfg.json")
 		return true
 	}
@@ -112,7 +115,7 @@ func startMatrixSync(client *mautrix.Client) {
 					deleteWritingTemp(roomID)
 					return
 				}
-				client.SendText(roomID, "Now send me the content of the email. One message is one line. If you want to send or cancle enter !send or !cancle")
+				client.SendText(roomID, "Now send me the content of the email. One message is one line. If you want to send or cancle enter !send or !cancel")
 			} else {
 				if message == "!send" {
 					deleteWritingTemp(roomID)
@@ -127,7 +130,12 @@ func startMatrixSync(client *mautrix.Client) {
 					m.SetHeader("From", account.username)
 					m.SetHeader("To", writeTemp.receiver)
 					m.SetHeader("Subject", writeTemp.subject)
-					m.SetBody("text/plain", writeTemp.body)
+
+					if writeTemp.markdown {
+						m.SetBody("text/html", string(markdown.ToHTML([]byte(writeTemp.body), nil, nil)))
+					} else {
+						m.SetBody("text/plain", writeTemp.body)
+					}
 
 					d := gomail.NewDialer(account.host, account.port, account.username, account.password)
 					if account.ignoreSSL {
@@ -139,14 +147,18 @@ func startMatrixSync(client *mautrix.Client) {
 						removeSMTPAccount(roomID)
 						client.SendText(roomID, "To fix this errer you have to run !setup smtp .... again")
 						return
-					} else {
-						client.SendText(roomID, "Message sent successfully")
 					}
+					client.SendText(roomID, "Message sent successfully")
 				} else if message == "!cancel" {
 					client.SendText(roomID, "Mail canceled")
 					deleteWritingTemp(roomID)
+					return
 				} else {
-					err = saveWritingtemp(roomID, "body", writeTemp.body+message+"\r\n")
+					if len(strings.ReplaceAll(writeTemp.body, " ", "")) == 0 {
+						err = saveWritingtemp(roomID, "body", message+"\r\n")
+					} else {
+						err = saveWritingtemp(roomID, "body", writeTemp.body+message+"\r\n")
+					}
 					if err != nil {
 						WriteLog(critical, "#45 saveWritingtemp: "+err.Error())
 						client.SendText(roomID, "An server-error occured Errorcode: #45")
@@ -337,7 +349,7 @@ func startMatrixSync(client *mautrix.Client) {
 				helpText += "!setup imap/smtp, host:port, username(em@ail.com), password, <mailbox (only for imap)> ,ignoreSSLcert(true/false) - creates a bridge for this room\r\n"
 				helpText += "!ping - gets information about the email bridge for this room\r\n"
 				helpText += "!help - shows this command help overview\r\n"
-				helpText += "!write <receiver email> - sends an email to a given address\r\n"
+				helpText += "!write (receiver email) <markdown default:true>- sends an email to a given address\r\n"
 				client.SendText(roomID, helpText)
 			} else if message == "!ping" {
 				if has, err := hasRoom(roomID); has && err == nil {
@@ -370,7 +382,7 @@ func startMatrixSync(client *mautrix.Client) {
 						return
 					}
 					s := strings.Split(message, " ")
-					if len(s) == 2 {
+					if len(s) > 1 {
 						receiver := strings.Trim(s[1], " ")
 						if strings.Contains(receiver, "@") && strings.Contains(receiver, ".") && len(receiver) > 5 {
 							hasTemp, err := isUserWritingEmail(roomID)
@@ -387,7 +399,24 @@ func startMatrixSync(client *mautrix.Client) {
 									return
 								}
 							}
+
+							mrkdwn := 0
+							if viper.GetBool("markdownEnabledByDefault") {
+								mrkdwn = 1
+							}
+							if len(s) == 3 {
+								mdwn, berr := strconv.ParseBool(s[2])
+								if berr == nil {
+									if mdwn {
+										mrkdwn = 1
+									} else {
+										mrkdwn = 0
+									}
+								}
+							}
+
 							err = newWritingTemp(roomID, receiver)
+							saveWritingtemp(roomID, "markdown", strconv.Itoa(mrkdwn))
 							if err != nil {
 								WriteLog(critical, "#42 newWritingTemp: "+err.Error())
 								client.SendText(roomID, "An server-error occured Errorcode: #42")
@@ -475,7 +504,6 @@ func startMailListener(account imapAccountount) {
 			case <-quit:
 				return
 			default:
-				fmt.Println("check for " + account.username)
 				fetchNewMails(mClient, &account)
 				time.Sleep((time.Duration)(account.mailCheckInterval) * time.Second)
 			}
@@ -514,7 +542,7 @@ func fetchNewMails(mClient *client.Client, account *imapAccountount) {
 func handleMail(mail *imap.Message, section *imap.BodySectionName, account imapAccountount) {
 	content := getMailContent(mail, section)
 	fmt.Println(content.body)
-	matrixClient.SendText(account.roomID, "You've got a new Email FROM "+content.from)
+	matrixClient.SendText(account.roomID, "## You've got a new Email FROM "+content.from)
 	matrixClient.SendText(account.roomID, "Subject: "+content.subject)
 	matrixClient.SendText(account.roomID, content.body)
 }
