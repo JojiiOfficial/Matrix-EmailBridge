@@ -11,6 +11,7 @@ import (
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
 	_ "github.com/emersion/go-imap/client"
+	_ "github.com/emersion/go-sasl"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/viper"
 	"github.com/tulir/mautrix-go"
@@ -160,6 +161,8 @@ func startMatrixSync(client *mautrix.Client) {
 								WriteLog(logError, "#04 creating bridge: "+err.Error())
 							}
 						}()
+					} else if accountType == "smtp" {
+						///TODO
 					} else {
 						client.SendText(roomID, "Not implemented yet!")
 					}
