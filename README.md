@@ -3,7 +3,10 @@ A matrix-bridge written in GOlang to let you read your emails in matrix
 
 
 ## Information
-This bot is currently in development. Its not 100% tested</code>
+This bot is currently in development. Its not 100% tested
+<br>
+You can run the install.sh to install it. If that does'nt work, use the steps below and contact me to fix it
+
 
 ## Install
 Just run <code>go get</code> to fetch the required dependencies and <code>go build</code> inside the folder and execute the created binary. Then you have to adjust the config file to make it work with your matrix server.
