@@ -216,6 +216,10 @@ func startMatrixSync(client *mautrix.Client) {
 						}
 
 						go func() {
+							if !strings.Contains(host, ":") {
+								host += ":993"
+							}
+
 							mclient, err := loginMail(host, username, password, ignoreSSlCert)
 							if mclient != nil && err == nil {
 								has, er := hasRoom(roomID)
