@@ -259,18 +259,29 @@ func startMatrixSync(client *mautrix.Client) {
 			}
 		} else if message == "!help" {
 			helpText := "-------- Help --------\r\n"
-			helpText += "!setup imap/smtp, host:port, username(em@ail.com), password, ignoreSSLcert(true/false) - creates a bridge for this room\r\n"
+			helpText += "!setup imap/smtp, host:port, username(em@ail.com), password, <mailbox (only for imap)> ,ignoreSSLcert(true/false) - creates a bridge for this room\r\n"
 			helpText += "!ping - gets information about the email bridge for this room\r\n"
 			helpText += "!help - shows this command help overview\r\n"
+			helpText += "!send or !write - sends an email to a given address\r\n"
 			client.SendText(roomID, helpText)
 		} else if message == "!ping" {
-			roomData, err := getRoomInfo(roomID)
-			if err != nil {
-				WriteLog(logError, "#06 getting roomdata: "+err.Error())
-				client.SendText(roomData, "An server-error occured")
-				return
+			if has, err := hasRoom(roomID); has && err == nil {
+				roomData, err := getRoomInfo(roomID)
+				if err != nil {
+					WriteLog(logError, "#06 getting roomdata: "+err.Error())
+					client.SendText(roomData, "An server-error occured")
+					return
+				}
+				client.SendText(roomID, roomData)
+			} else {
+				client.SendText(roomID, "You have to login to use this command!")
 			}
-			client.SendText(roomID, roomData)
+		} else if message == "!send" || message == "!write" {
+			if has, err := hasRoom(roomID); has && err == nil {
+
+			} else {
+				client.SendText(roomID, "You have to login to use this command!")
+			}
 		}
 	})
 
