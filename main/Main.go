@@ -266,12 +266,18 @@ func startMatrixSync(client *mautrix.Client) {
 			client.SendText(roomID, helpText)
 		} else if message == "!ping" {
 			if has, err := hasRoom(roomID); has && err == nil {
+				if err != nil {
+					WriteLog(logError, "#06 hasRoom: "+err.Error())
+					client.SendText(roomID, "An server-error occured")
+					return
+				}
 				roomData, err := getRoomInfo(roomID)
 				if err != nil {
-					WriteLog(logError, "#06 getting roomdata: "+err.Error())
+					WriteLog(logError, "#006 getRoomInfo: "+err.Error())
 					client.SendText(roomData, "An server-error occured")
 					return
 				}
+
 				client.SendText(roomID, roomData)
 			} else {
 				client.SendText(roomID, "You have to login to use this command!")

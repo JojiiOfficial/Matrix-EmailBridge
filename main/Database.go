@@ -76,7 +76,7 @@ func createAllTables() {
 }
 
 func getRoomInfo(roomID string) (string, error) {
-	stmt, err := db.Prepare("SELECT imapAccounts.username, smtpAccounts.username FROM rooms LEFT JOIN imapAccounts ON (imapAccounts.pk_id = rooms.imapAccount) LEFT JOIN smtpAccounts ON (smtpAccounts.pk_id = rooms.smtpAccount)  WHERE roomID=?")
+	stmt, err := db.Prepare("SELECT IFNULL(imapAccounts.username, 'not configured'), IFNULL(smtpAccounts.username, 'not configured') FROM rooms LEFT JOIN imapAccounts ON (imapAccounts.pk_id = rooms.imapAccount) LEFT JOIN smtpAccounts ON (smtpAccounts.pk_id = rooms.smtpAccount)  WHERE roomID=?")
 	if err != nil {
 		return "", err
 	}
