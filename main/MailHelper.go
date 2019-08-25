@@ -31,8 +31,8 @@ func loginMail(host, username, password string, ignoreSSL bool) (*client.Client,
 	return ailClient, nil
 }
 
-func getMails(mClient *client.Client, messages chan *imap.Message) *imap.BodySectionName {
-	mbox, err := mClient.Select("INBOX", false)
+func getMails(mClient *client.Client, mBox string, messages chan *imap.Message) *imap.BodySectionName {
+	mbox, err := mClient.Select(mBox, false)
 	if err != nil {
 		WriteLog(logError, "#12 couldnt get INBOX "+err.Error())
 		return nil

@@ -13,7 +13,7 @@ type table struct {
 var tables = []table{
 	table{"mail", "mail TEXT, room INTEGER"},
 	table{"rooms", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, roomID TEXT, imapAccount INTEGER DEFAULT -1, smtpAccount INTEGER DEFAULT -1, mailCheckInterval INTEGER"},
-	table{"imapAccounts", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, host TEXT, username TEXT, password TEXT, ignoreSSL INTEGER"}}
+	table{"imapAccounts", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, host TEXT, username TEXT, password TEXT, ignoreSSL INTEGER, mailbox TEXT"}}
 
 func insertEmail(email string, roomPK int) error {
 	if val, err := dbContainsMail(email, roomPK); val && err == nil {
@@ -88,7 +88,7 @@ func getRoomInfo(roomID string) (string, error) {
 	return infoText, nil
 }
 
-func insertNewRoom(roomID string, imapAccountID, mailCheckInterval int) int64 {
+func insertNewRoom(roomID, mailbox string, imapAccountID, mailCheckInterval int) int64 {
 	stmt, err := db.Prepare("INSERT INTO rooms (roomID, imapAccount, mailCheckInterval) VALUES(?,?,?)")
 	checkErr(err)
 	res, err := stmt.Exec(roomID, imapAccountID, mailCheckInterval)
@@ -114,8 +114,8 @@ func hasRoom(roomID string) (bool, error) {
 	return (count > 0), nil
 }
 
-func insertimapAccountount(host, username, password string, ignoreSSl bool) (id int64, success bool) {
-	stmt, err := db.Prepare("INSERT INTO imapAccounts (host, username, password, ignoreSSL) VALUES(?,?,?,?)")
+func insertimapAccountount(host, username, password, mailbox string, ignoreSSl bool) (id int64, success bool) {
+	stmt, err := db.Prepare("INSERT INTO imapAccounts (host, username, password, ignoreSSL, mailbox) VALUES(?,?,?,?,?)")
 	success = true
 	if !checkErr(err) {
 		WriteLog(critical, "#20 insertimapAccountount could not execute err: "+err.Error())
@@ -125,7 +125,7 @@ func insertimapAccountount(host, username, password string, ignoreSSl bool) (id 
 	if ignoreSSl {
 		ign = 1
 	}
-	a, er := stmt.Exec(host, username, base64.StdEncoding.EncodeToString([]byte(password)), ign)
+	a, er := stmt.Exec(host, username, base64.StdEncoding.EncodeToString([]byte(password)), ign, mailbox)
 	if !checkErr(er) {
 		WriteLog(critical, "#21 insertimapAccountount could not execute err: "+err.Error())
 		success = false
@@ -147,10 +147,10 @@ func checkErr(de error) bool {
 }
 
 type imapAccountount struct {
-	host, username, password, roomID string
-	ignoreSSL                        bool
-	roomPKID, mailCheckInterval      int
-	silence                          bool
+	host, username, password, roomID, mailbox string
+	ignoreSSL                                 bool
+	roomPKID, mailCheckInterval               int
+	silence                                   bool
 }
 
 func isImapAccountAlreadyInUse(email string) (bool, error) {
@@ -168,16 +168,16 @@ func isImapAccountAlreadyInUse(email string) (bool, error) {
 }
 
 func getimapAccounts() ([]imapAccountount, error) {
-	rows, err := db.Query("SELECT host, username, password, ignoreSSL, rooms.roomID, rooms.pk_id, rooms.mailCheckInterval FROM imapAccounts INNER JOIN rooms ON (rooms.imapAccount = imapAccounts.pk_id)")
+	rows, err := db.Query("SELECT host, username, password, ignoreSSL, rooms.roomID, rooms.pk_id, rooms.mailCheckInterval, mailbox FROM imapAccounts INNER JOIN rooms ON (rooms.imapAccount = imapAccounts.pk_id)")
 	if !checkErr(err) {
 		return nil, err
 	}
 
 	var list []imapAccountount
-	var host, username, password, roomID string
+	var host, username, password, roomID, mailbox string
 	var ignoreSSL, roomPKID, mailCheckInterval int
 	for rows.Next() {
-		rows.Scan(&host, &username, &password, &ignoreSSL, &roomID, &roomPKID, &mailCheckInterval)
+		rows.Scan(&host, &username, &password, &ignoreSSL, &roomID, &roomPKID, &mailCheckInterval, &mailbox)
 		ignssl := false
 		if ignoreSSL == 1 {
 			ignssl = true
@@ -187,7 +187,7 @@ func getimapAccounts() ([]imapAccountount, error) {
 			fmt.Println(err.Error())
 			continue
 		}
-		list = append(list, imapAccountount{host, username, string(pass), roomID, ignssl, roomPKID, mailCheckInterval, false})
+		list = append(list, imapAccountount{host, username, string(pass), roomID, mailbox, ignssl, roomPKID, mailCheckInterval, false})
 	}
 	return list, nil
 }

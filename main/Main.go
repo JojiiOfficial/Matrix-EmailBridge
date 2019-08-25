@@ -95,15 +95,15 @@ func startMatrixSync(client *mautrix.Client) {
 		//commands only available in room not bridged to email
 		if has, err := hasRoom(roomID); !has && err == nil {
 			if message == "!login" {
-				client.SendText(roomID, "Okay send me the data of your server(IMAPs) in the given order, splitted by a comma(,)\r\n!setup imap, host:port, username/email, password\r\n\r\nExample: \r\n!setup imap, host.com:993, mail@host.com, w0rdp4ss")
+				client.SendText(roomID, "Okay send me the data of your server(IMAPs) in the given order, splitted by a comma(,)\r\n!setup imap, host:port, username/email, password, mailbox, ignoreSSL\r\n\r\nExample: \r\n!setup imap, host.com:993, mail@host.com, w0rdp4ss, INBOX, false")
 			} else if strings.HasPrefix(message, "!setup") {
 				data := strings.Trim(strings.ReplaceAll(message, "!setup", ""), " ")
 				s := strings.Split(data, ",")
 				for i := 0; i < len(s); i++ {
 					s[i] = strings.Trim(s[i], " ")
 				}
-				if len(s) < 4 || len(s) > 5 {
-					client.SendText(roomID, "Wrong syntax :/\r\nExample: \r\n!setup imap, host.com:993, mail@host.com, w0rdp4ss")
+				if len(s) < 4 || len(s) > 6 {
+					client.SendText(roomID, "Wrong syntax :/\r\nExample: \r\n!setup imap, host.com:993, mail@host.com, w0rdp4ss, INBOX, false")
 				} else {
 					accountType := s[0]
 					if strings.ToLower(accountType) != "imap" && strings.ToLower(accountType) != "smtp" {
@@ -114,8 +114,12 @@ func startMatrixSync(client *mautrix.Client) {
 					username := s[2]
 					password := s[3]
 					ignoreSSlCert := false
-					if len(s) == 5 {
-						ignoreSSlCert, err = strconv.ParseBool(s[4])
+					mailbox := "INBOX"
+					if len(s) >= 5 {
+						mailbox = s[4]
+					}
+					if len(s) == 6 {
+						ignoreSSlCert, err = strconv.ParseBool(s[5])
 						if err != nil {
 							fmt.Println(err.Error())
 							ignoreSSlCert = false
@@ -134,26 +138,28 @@ func startMatrixSync(client *mautrix.Client) {
 							return
 						}
 
-						mclient, err := loginMail(host, username, password, ignoreSSlCert)
-						if mclient != nil && err == nil {
-							id, succes := insertimapAccountount(host, username, password, ignoreSSlCert)
-							if !succes {
-								client.SendText(roomID, "sth went wrong. Contact your admin")
-								return
+						go func() {
+							mclient, err := loginMail(host, username, password, ignoreSSlCert)
+							if mclient != nil && err == nil {
+								id, succes := insertimapAccountount(host, username, password, mailbox, ignoreSSlCert)
+								if !succes {
+									client.SendText(roomID, "sth went wrong. Contact your admin")
+									return
+								}
+								defaultMailSyncInterval := viper.GetInt("defuaultmailCheckInterval")
+								newRoomID := insertNewRoom(roomID, mailbox, int(id), defaultMailSyncInterval)
+								if newRoomID == -1 {
+									client.SendText(roomID, "An error occured! contact your admin! Errorcode: #19")
+									return
+								}
+								client.SendText(roomID, "Bridge created successfully!\r\nYou should delete the message containing your credentials ;)")
+								startMailListener(imapAccountount{host, username, password, roomID, mailbox, ignoreSSlCert, int(newRoomID), defaultMailSyncInterval, true})
+								WriteLog(success, "Created new bridge and started maillistener")
+							} else {
+								client.SendText(roomID, "Error creating bridge! Errorcode: #04\r\nReason: "+err.Error())
+								WriteLog(logError, "#04 creating bridge: "+err.Error())
 							}
-							defaultMailSyncInterval := viper.GetInt("defuaultmailCheckInterval")
-							newRoomID := insertNewRoom(roomID, int(id), defaultMailSyncInterval)
-							if newRoomID == -1 {
-								client.SendText(roomID, "An error occured! contact your admin! Errorcode: #19")
-								return
-							}
-							client.SendText(roomID, "Bridge created successfully!\r\nYou should delete the message containing your credentials ;)")
-							startMailListener(imapAccountount{host, username, password, roomID, ignoreSSlCert, int(newRoomID), defaultMailSyncInterval, true})
-							WriteLog(success, "Created new bridge and started maillistener")
-						} else {
-							client.SendText(roomID, "Error creating bridge! Errorcode: #04")
-							WriteLog(logError, "#04 creating bridge: "+err.Error())
-						}
+						}()
 					} else {
 						client.SendText(roomID, "Not implemented yet!")
 					}
@@ -269,7 +275,7 @@ func startMailListener(account imapAccountount) {
 
 func fetchNewMails(mClient *client.Client, account *imapAccountount) {
 	messages := make(chan *imap.Message, 1)
-	section := getMails(mClient, messages)
+	section := getMails(mClient, account.mailbox, messages)
 
 	if section == nil {
 		if account.silence {
