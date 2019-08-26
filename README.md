@@ -28,4 +28,4 @@ Note: you should change the permissions of the <code>cfg.json</code> and <code>d
 - [ ]  Use commands to move/delete emails
 
 <br>
-<b>Matrix room:</b> <a href="https://matrix.to/#/#jojiiMail:matrix.jojii.de" target="_blank">#jojiiMai:matrix.jojii.de</a>
+<b>Matrix room:</b> <a href="https://matrix.to/#/#jojiiMail:matrix.jojii.de" target="_blank">#jojiiMail:matrix.jojii.de</a>
