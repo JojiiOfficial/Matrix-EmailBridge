@@ -275,9 +275,14 @@ func startMatrixSync(client *mautrix.Client) {
 									client.SendText(roomID, "sth went wrong. Contact you admin! Errorcode: #35")
 									return
 								}
-								client.SendText(roomID, "Bridge created successfully!\r\nYou should delete the message containing your credentials ;)")
+								client.SendText(roomID, "Bridge created successfully!\r\nYou should delete the message containing your credentials ;)\r\nIMAP:\r\n"+
+									"host: "+host+"\r\n"+
+									"username: "+username+"\r\n"+
+									"mailbox: "+mailbox+"\r\n"+
+									"ignoreSSL: "+strconv.FormatBool(ignoreSSlCert))
+
 								startMailListener(imapAccountount{host, username, password, roomID, mailbox, ignoreSSlCert, int(newRoomID), defaultMailSyncInterval, true})
-								WriteLog(success, "Created new bridge and started maillistener")
+								WriteLog(success, "Created new bridge and started maillistener\r\n")
 							} else {
 								client.SendText(roomID, "Error creating bridge! Errorcode: #04\r\nReason: "+err.Error())
 								WriteLog(logError, "#04 creating bridge: "+err.Error())
@@ -353,7 +358,12 @@ func startMatrixSync(client *mautrix.Client) {
 								client.SendText(roomID, "sth went wrong. Contact you admin! Errorcode: #34")
 								return
 							}
-							client.SendText(roomID, "SMTP data saved! If the given data is incorrect, you have to set them again if you want to send an email")
+
+							client.SendText(roomID, "SMTP data saved.\r\nSMTP:\r\n"+
+								"host: "+host+"\r\n"+
+								"port: "+strconv.Itoa(port)+"\r\n"+
+								"username: "+username+"\r\n"+
+								"ignoreSSL: "+strconv.FormatBool(ignoreSSlCert))
 						}()
 					} else {
 						client.SendText(roomID, "Not implemented yet!")
