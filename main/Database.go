@@ -135,9 +135,7 @@ func deleteRoomAndEmailByRoomID(roomID string) {
 	checkErr(err)
 	stmt1.Exec(roomID)
 
-	stmt3, err := db.Prepare("DELETE FROM mail WHERE room=(SELECT pk_id FROM rooms WHERE roomID=?)")
-	checkErr(err)
-	stmt3.Exec(roomID)
+	deleteMails(roomID)
 
 	stmt2, err := db.Prepare("DELETE FROM rooms WHERE roomID=?")
 	checkErr(err)
@@ -146,6 +144,12 @@ func deleteRoomAndEmailByRoomID(roomID string) {
 	stmt4, err := db.Prepare("DELETE FROM smtpAccounts WHERE pk_id=(SELECT smtpAccount FROM rooms WHERE roomID=?)")
 	checkErr(err)
 	stmt4.Exec(roomID)
+}
+
+func deleteMails(roomID string) {
+	stmt3, err := db.Prepare("DELETE FROM mail WHERE room=(SELECT pk_id FROM rooms WHERE roomID=?)")
+	checkErr(err)
+	stmt3.Exec(roomID)
 }
 
 func createTable(name, values string) error {
@@ -376,6 +380,35 @@ func getimapAccounts() ([]imapAccountount, error) {
 	return list, nil
 }
 
+func getIMAPAccount(roomID string) (*imapAccountount, error) {
+	var host, username, password, rid, mailbox string
+	var ignoreSSL, roomPKID, mailCheckInterval int
+
+	res, err := db.Prepare("SELECT host, username, password, ignoreSSL, rooms.roomID, rooms.pk_id, rooms.mailCheckInterval, mailbox FROM imapAccounts INNER JOIN rooms ON (rooms.imapAccount = imapAccounts.pk_id) WHERE rooms.roomID=?")
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = res.QueryRow(roomID).Scan(&host, &username, &password, &ignoreSSL, &rid, &roomPKID, &mailCheckInterval, &mailbox)
+
+	if err != nil {
+		return nil, err
+	}
+	ignssl := false
+	if ignoreSSL == 1 {
+		ignssl = true
+	}
+	pass, berr := base64.StdEncoding.DecodeString(password)
+
+	if berr != nil {
+		fmt.Println(err.Error())
+		return nil, berr
+	}
+
+	return &imapAccountount{host, username, string(pass), roomID, mailbox, ignssl, roomPKID, mailCheckInterval, false}, nil
+}
+
 func getSMTPAccount(roomID string) (*smtpAccount, error) {
 	rows, err := db.Prepare("SELECT smtpAccounts.pk_id, host, port, username, password, rooms.pk_id, ignoreSSL FROM smtpAccounts INNER JOIN rooms ON (rooms.smtpAccount = smtpAccounts.pk_id) WHERE rooms.roomID=?")
 	if err != nil {
@@ -398,4 +431,23 @@ func getSMTPAccount(roomID string) (*smtpAccount, error) {
 		return nil, berr
 	}
 	return &smtpAccount{host, username, string(pass), roomID, ignSSL, roomPKID, port, pk}, nil
+}
+
+func saveMailbox(roomID, newMailbox string) error {
+	stmt, err := db.Prepare("UPDATE imapAccounts SET mailbox=? WHERE pk_id=(SELECT imapAccount FROM rooms WHERE roomID=?)")
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(newMailbox, roomID)
+	return err
+}
+
+func getMailbox(roomID string) (string, error) {
+	stmt, err := db.Prepare("SELECT mailbox FROM imapAccounts WHERE pk_id=(SELECT imapAccount FROM rooms WHERE roomID=?)")
+	if err != nil {
+		return "", err
+	}
+	mailbox := ""
+	err = stmt.QueryRow(roomID).Scan(&mailbox)
+	return mailbox, err
 }

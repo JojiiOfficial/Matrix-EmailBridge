@@ -72,6 +72,25 @@ type email struct {
 	date                                time.Time
 }
 
+func getMailboxes(emailClient *client.Client) (string, error) {
+	// List mailboxes
+	mailboxes := make(chan *imap.MailboxInfo, 20)
+	done := make(chan error, 1)
+	go func() {
+		done <- emailClient.List("", "*", mailboxes)
+	}()
+
+	mboxes := ""
+	for m := range mailboxes {
+		mboxes += "-> " + m.Name + "\r\n"
+	}
+
+	if err := <-done; err != nil {
+		return "", err
+	}
+	return mboxes, nil
+}
+
 func getMailContent(msg *imap.Message, section *imap.BodySectionName) *email {
 	if msg == nil {
 		fmt.Println("msg is nil")

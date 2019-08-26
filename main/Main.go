@@ -83,11 +83,7 @@ func startMatrixSync(client *mautrix.Client) {
 
 	syncer.OnEventType(mautrix.StateMember, func(evt *mautrix.Event) {
 		if evt.Sender != client.UserID && evt.Content.Membership == "leave" {
-			_, ok := listenerMap[evt.RoomID]
-			if ok {
-				close(listenerMap[evt.RoomID])
-				//delete(listenerMap, evt.RoomID)
-			}
+			stopMailChecker(evt.RoomID)
 			deleteRoomAndEmailByRoomID(evt.RoomID)
 		}
 	})
@@ -350,6 +346,9 @@ func startMatrixSync(client *mautrix.Client) {
 				helpText += "!ping - gets information about the email bridge for this room\r\n"
 				helpText += "!help - shows this command help overview\r\n"
 				helpText += "!write (receiver email) <markdown default:true>- sends an email to a given address\r\n"
+				helpText += "!mailboxes - shows a list with all mailboxes available on your IMAP server\r\n"
+				helpText += "!setmailbox <mailbox> - changes the mailbox for the room\r\n"
+				helpText += "!mailbox - shows the currently selected mailbox\r\n"
 				client.SendText(roomID, helpText)
 			} else if message == "!ping" {
 				if has, err := hasRoom(roomID); has && err == nil {
@@ -432,6 +431,71 @@ func startMatrixSync(client *mautrix.Client) {
 				} else {
 					client.SendText(roomID, "You have to login to use this command!")
 				}
+			} else if message == "!mailboxes" {
+				imapAccID, _, erro := getRoomAccounts(roomID)
+				if erro != nil {
+					WriteLog(critical, "#48 getRoomAccounts: "+err.Error())
+					client.SendText(roomID, "An server-error occured Errorcode: #48")
+					return
+				}
+				if imapAccID != -1 {
+					mailboxes, err := getMailboxes(clients[roomID])
+					if err != nil {
+						WriteLog(critical, "#47 getMailboxes: "+err.Error())
+						client.SendText(roomID, "An server-error occured Errorcode: #47")
+						return
+					}
+					client.SendText(roomID, "Your mailboxes:\r\n"+mailboxes+"\r\nUse !setmailbox <mailbox> to change your mailbox")
+				} else {
+					client.SendText(roomID, "You have to setup an IMAP account to use this command. Use !setup or !login for more informations")
+				}
+			} else if strings.HasPrefix(message, "!setmailbox") {
+				imapAccID, _, erro := getRoomAccounts(roomID)
+				if erro != nil {
+					WriteLog(critical, "#48 getRoomAccounts: "+err.Error())
+					client.SendText(roomID, "An server-error occured Errorcode: #48")
+					return
+				}
+				if imapAccID != -1 {
+					d := strings.Split(message, " ")
+					if len(d) == 2 {
+						mailbox := d[1]
+						saveMailbox(roomID, mailbox)
+						deleteMails(roomID)
+						stopMailChecker(roomID)
+						imapAccount, err := getIMAPAccount(roomID)
+						if err != nil {
+							WriteLog(critical, "#49 getIMAPAccount: "+err.Error())
+							client.SendText(roomID, "An server-error occured Errorcode: #49")
+							return
+						}
+						imapAccount.silence = true
+						go startMailListener(*imapAccount)
+						client.SendText(roomID, "Mailbox updated")
+					} else {
+						client.SendText(roomID, "Usage: !setmailbox <new mailbox>")
+					}
+				} else {
+					client.SendText(roomID, "You have to setup an IMAP account to use this command. Use !setup or !login for more informations")
+				}
+			} else if message == "!mailbox" {
+				imapAccID, _, erro := getRoomAccounts(roomID)
+				if erro != nil {
+					WriteLog(critical, "#50 getRoomAccounts: "+err.Error())
+					client.SendText(roomID, "An server-error occured Errorcode: #50")
+					return
+				}
+				if imapAccID != -1 {
+					mailbox, err := getMailbox(roomID)
+					if err != nil {
+						WriteLog(critical, "#51 getMailbox: "+err.Error())
+						client.SendText(roomID, "An server-error occured Errorcode: #51")
+						return
+					}
+					client.SendText(roomID, "The current mailbox for this room is: "+mailbox)
+				} else {
+					client.SendText(roomID, "You have to setup an IMAP account to use this command. Use !setup or !login for more informations")
+				}
 			} else if strings.HasPrefix(message, "!") {
 				client.SendText(roomID, "command not found!")
 			}
@@ -473,10 +537,20 @@ func main() {
 	}
 }
 
+func stopMailChecker(roomID string) {
+	_, ok := listenerMap[roomID]
+	if ok {
+		close(listenerMap[roomID])
+		//delete(listenerMap, evt.RoomID)
+	}
+}
+
 var listenerMap map[string]chan bool
+var clients map[string]*client.Client
 
 func startMailSchedeuler() {
 	listenerMap = make(map[string]chan bool)
+	clients = make(map[string]*client.Client)
 	accounts, err := getimapAccounts()
 	if err != nil {
 		WriteLog(critical, "#09 reading accounts: "+err.Error())
@@ -498,6 +572,7 @@ func startMailListener(account imapAccountount) {
 		return
 	}
 	listenerMap[account.roomID] = quit
+	clients[account.roomID] = mClient
 	go func() {
 		for {
 			select {
