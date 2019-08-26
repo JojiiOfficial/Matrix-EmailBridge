@@ -26,3 +26,6 @@ Note: you should change the permissions of the <code>cfg.json</code> and <code>d
 - [X]  Send emails
 - [X]  Use markdown for writing emails (optional)
 - [ ]  Use commands to move/delete emails
+
+<br>
+<b>Matrix room:</b> <a href="https://matrix.to/#/#jojiiMail:matrix.jojii.de" target="_blank">#jojiiMai:matrix.jojii.de</a>
