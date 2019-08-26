@@ -7,7 +7,8 @@ This bot is currently in development. Its not 100% tested
 <br>
 You can run the install.sh to install it. If that does'nt work, use the steps below and contact me to fix it
 <br>
-If you have problems with enabling HTML-rendering since commit <code>[470da88](https://github.com/JojiiOfficial/Matrix-EmailBot/commit/470da88d7c6330a0ab01c2975978102f744946a8)</code> delete the database and let the bridge create a new one. Or manually add a column to table <code>rooms</code> called <code>isHTMLenabled</code> and set the type to <code>INTEGER</code>
+<br>
+If you have problems with enabling HTML-rendering since commit <code>[470da88](https://github.com/JojiiOfficial/Matrix-EmailBot/commit/470da88d7c6330a0ab01c2975978102f744946a8)</code>, delete the database and let the bridge create a new one. Or manually add a column to table <code>rooms</code> called <code>isHTMLenabled</code> and set the type to <code>INTEGER</code>
 
 ## Install
 Just run <code>go get</code> to fetch the required dependencies and <code>go build</code> inside the folder and execute the created binary. Then you have to adjust the config file to make it work with your matrix server.
