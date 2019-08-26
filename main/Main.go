@@ -49,6 +49,7 @@ func initCfg() bool {
 		viper.SetDefault("matrixuserid", "@m:matrix.org")
 		viper.SetDefault("defuaultmailCheckInterval", 10)
 		viper.SetDefault("markdownEnabledByDefault", true)
+		viper.SetDefault("htmlDefault", false)
 		viper.WriteConfigAs("./cfg.json")
 		return true
 	}
@@ -353,8 +354,9 @@ func startMatrixSync(client *mautrix.Client) {
 				helpText += "!help - shows this command help overview\r\n"
 				helpText += "!write (receiver email) <markdown default:true>- sends an email to a given address\r\n"
 				helpText += "!mailboxes - shows a list with all mailboxes available on your IMAP server\r\n"
-				helpText += "!setmailbox <mailbox> - changes the mailbox for the room\r\n"
+				helpText += "!setmailbox (mailbox) - changes the mailbox for the room\r\n"
 				helpText += "!mailbox - shows the currently selected mailbox\r\n"
+				helpText += "!sethtml (on/off or true/false) - sets HTML-rendering for messages on/off"
 				client.SendText(roomID, helpText)
 			} else if message == "!ping" {
 				if has, err := hasRoom(roomID); has && err == nil {
@@ -502,6 +504,37 @@ func startMatrixSync(client *mautrix.Client) {
 				} else {
 					client.SendText(roomID, "You have to setup an IMAP account to use this command. Use !setup or !login for more informations")
 				}
+			} else if strings.HasPrefix(message, "!sethtml") {
+				imapAccID, _, erro := getRoomAccounts(roomID)
+				if erro != nil {
+					WriteLog(critical, "#50 getRoomAccounts: "+err.Error())
+					client.SendText(roomID, "An server-error occured Errorcode: #50")
+					return
+				}
+				if imapAccID != -1 {
+					d := strings.Split(message, " ")
+					if len(d) == 2 {
+						newMode := strings.ToLower(d[1])
+						newModeB := false
+						if newMode == "true" || newMode == "on" {
+							newModeB = true
+						} else if newMode != "false" && newMode != "off" {
+							client.SendText(roomID, "What?\r\non/off or true/false")
+							return
+						}
+						err := setHTMLenabled(roomID, newModeB)
+						if err != nil {
+							WriteLog(critical, "#56 getMailbox: "+err.Error())
+							client.SendText(roomID, "An server-error occured Errorcode: #56")
+							return
+						}
+						client.SendText(roomID, "Successfully set HTML-rendering to "+newMode)
+					} else {
+						client.SendText(roomID, "Usage: !sethtml (on/of) or (true/false)")
+					}
+				} else {
+					client.SendText(roomID, "You have to setup an IMAP account to use this command. Use !setup or !login for more informations")
+				}
 			} else if strings.HasPrefix(message, "!") {
 				client.SendText(roomID, "command not found!")
 			}
@@ -621,7 +654,7 @@ func fetchNewMails(mClient *client.Client, account *imapAccountount) {
 }
 
 func handleMail(mail *imap.Message, section *imap.BodySectionName, account imapAccountount) {
-	content := getMailContent(mail, section)
+	content := getMailContent(mail, section, account.roomID)
 	fmt.Println(content.body)
 	from := html.EscapeString(content.from)
 	headerContent := &mautrix.Content{

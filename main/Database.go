@@ -4,6 +4,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
+
+	"github.com/spf13/viper"
 )
 
 type table struct {
@@ -31,7 +33,7 @@ type smtpAccount struct {
 
 var tables = []table{
 	table{"mail", "mail TEXT, room INTEGER"},
-	table{"rooms", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, roomID TEXT, imapAccount INTEGER DEFAULT -1, smtpAccount INTEGER DEFAULT -1, mailCheckInterval INTEGER"},
+	table{"rooms", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, roomID TEXT, imapAccount INTEGER DEFAULT -1, smtpAccount INTEGER DEFAULT -1, mailCheckInterval INTEGER, isHTMLenabled INTEGER"},
 	table{"imapAccounts", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, host TEXT, username TEXT, password TEXT, ignoreSSL INTEGER, mailbox TEXT"},
 	table{"smtpAccounts", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, host TEXT, port int, username TEXT, password TEXT, ignoreSSL INTEGER"},
 	table{"emailWritingTemp", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, roomID TEXT, receiver TEXT, subject TEXT DEFAULT ' ', body TEXT DEFAULT ' ', markdown INTEGER"}}
@@ -213,9 +215,15 @@ func getRoomAccounts(roomID string) (imapAccount, smtpAccount int, err error) {
 }
 
 func insertNewRoom(roomID string, mailCheckInterval int) int64 {
-	stmt, err := db.Prepare("INSERT INTO rooms (roomID, mailCheckInterval) VALUES(?,?)")
+	stmt, err := db.Prepare("INSERT INTO rooms (roomID, mailCheckInterval, isHTMLenabled) VALUES(?,?,?)")
 	checkErr(err)
-	res, err := stmt.Exec(roomID, mailCheckInterval)
+
+	isenabled := 0
+	if viper.GetBool("htmlDefault") {
+		isenabled = 1
+	}
+
+	res, err := stmt.Exec(roomID, mailCheckInterval, isenabled)
 	if err != nil {
 		WriteLog(critical, "#19 insertNewRoom could not execute err: "+err.Error())
 		return -1
@@ -450,4 +458,37 @@ func getMailbox(roomID string) (string, error) {
 	mailbox := ""
 	err = stmt.QueryRow(roomID).Scan(&mailbox)
 	return mailbox, err
+}
+
+func isHTMLenabled(roomID string) (bool, error) {
+	stmt, err := db.Prepare("SELECT isHTMLenabled FROM rooms WHERE roomID=?")
+	if err != nil {
+		return false, err
+	}
+	var isEnabled int
+	err = stmt.QueryRow(roomID).Scan(&isEnabled)
+	if err != nil {
+		return false, err
+	}
+	ishtml := true
+	if isEnabled == 0 {
+		ishtml = false
+	}
+	return ishtml, nil
+}
+
+func setHTMLenabled(roomID string, enabled bool) error {
+	stmt, err := db.Prepare("UPDATE rooms SET isHTMLenabled=? WHERE roomID=?")
+	if err != nil {
+		return err
+	}
+	isenabled := 1
+	if !enabled {
+		isenabled = 0
+	}
+	_, err = stmt.Exec(isenabled, roomID)
+	if err != nil {
+		return err
+	}
+	return nil
 }

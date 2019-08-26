@@ -92,7 +92,7 @@ func getMailboxes(emailClient *client.Client) (string, error) {
 	return mboxes, nil
 }
 
-func getMailContent(msg *imap.Message, section *imap.BodySectionName) *email {
+func getMailContent(msg *imap.Message, section *imap.BodySectionName, roomID string) *email {
 	if msg == nil {
 		fmt.Println("msg is nil")
 		WriteLog(logError, "#15 getMailContent msg is nil")
@@ -140,7 +140,7 @@ func getMailContent(msg *imap.Message, section *imap.BodySectionName) *email {
 	}
 
 	htmlBody, plainBody := "", ""
-
+	_ = htmlBody
 	for {
 		p, err := mr.NextPart()
 		if err == io.EOF {
@@ -172,8 +172,11 @@ func getMailContent(msg *imap.Message, section *imap.BodySectionName) *email {
 			jmail.attachment += string(filename)
 		}
 	}
-
-	if len(htmlBody) > 0 {
+	isEnabled, eror := isHTMLenabled(roomID)
+	if eror != nil {
+		WriteLog(critical, "#55 isHTMLenabled: "+err.Error())
+	}
+	if len(htmlBody) > 0 && isEnabled {
 		jmail.body = html.UnescapeString(htmlBody)
 		parseLines(&jmail.body)
 		jmail.htmlFormat = true
