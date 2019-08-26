@@ -130,7 +130,6 @@ func startMatrixSync(client *mautrix.Client) {
 					m.SetHeader("Subject", writeTemp.subject)
 
 					if writeTemp.markdown {
-
 						toSendText := string(markdown.ToHTML([]byte(writeTemp.body), nil, nil))
 						toSendText = strings.ReplaceAll(toSendText, "\r\n<h", "<h")
 						toSendText = strings.ReplaceAll(toSendText, "\n\n<h", "<h")
@@ -334,6 +333,14 @@ func startMatrixSync(client *mautrix.Client) {
 							port := 587
 							if !strings.Contains(host, ":") {
 								client.SendText(roomID, "No port specified! Using 587")
+							} else {
+								hostsplit := strings.Split(host, ":")
+								host = hostsplit[0]
+								port, err = strconv.Atoi(strings.Trim(hostsplit[1], " "))
+								if err != nil {
+									client.SendText(roomID, "The port must be a number!")
+									return
+								}
 							}
 							smtpID, err := insertSMTPAccountount(host, port, username, password, ignoreSSlCert)
 							if err != nil {
