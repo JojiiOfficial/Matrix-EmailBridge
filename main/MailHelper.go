@@ -193,8 +193,8 @@ func getMailContent(msg *imap.Message, section *imap.BodySectionName, roomID str
 }
 
 func parseLines(body *string) {
-	*body = strings.TrimLeft(*body, "\r\n")
-	*body = strings.ReplaceAll(*body, "\r\n\r\n", "\n")
+	// *body = strings.TrimLeft(*body, "\r\n")
+	// *body = strings.ReplaceAll(*body, "\r\n\r\n", "\n")
 }
 
 func parseMailBody(body *string) {

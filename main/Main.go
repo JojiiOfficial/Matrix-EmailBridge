@@ -130,12 +130,17 @@ func startMatrixSync(client *mautrix.Client) {
 					m.SetHeader("Subject", writeTemp.subject)
 
 					if writeTemp.markdown {
+
 						toSendText := string(markdown.ToHTML([]byte(writeTemp.body), nil, nil))
 						toSendText = strings.ReplaceAll(toSendText, "\r\n<h", "<h")
 						toSendText = strings.ReplaceAll(toSendText, "\n\n<h", "<h")
 						toSendText = strings.ReplaceAll(toSendText, ">\n\n", ">")
 						toSendText = strings.ReplaceAll(toSendText, "\r\n", "<br>")
 						m.SetBody("text/html", toSendText)
+
+						plainbody := writeTemp.body
+						plainbody = strings.ReplaceAll(plainbody, "<br>", "\r\n")
+						m.AddAlternative("text/plain", plainbody)
 					} else {
 						m.SetBody("text/plain", writeTemp.body)
 					}
