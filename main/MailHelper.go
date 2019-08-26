@@ -70,6 +70,7 @@ func getMails(mClient *client.Client, mBox string, messages chan *imap.Message) 
 type email struct {
 	body, from, to, subject, attachment string
 	date                                time.Time
+	htmlFormat                          bool
 }
 
 func getMailboxes(emailClient *client.Client) (string, error) {
@@ -138,7 +139,8 @@ func getMailContent(msg *imap.Message, section *imap.BodySectionName) *email {
 		jmail.subject = subject
 	}
 
-	hadPlan := false
+	htmlBody, plainBody := "", ""
+
 	for {
 		p, err := mr.NextPart()
 		if err == io.EOF {
@@ -151,28 +153,46 @@ func getMailContent(msg *imap.Message, section *imap.BodySectionName) *email {
 
 		switch h := p.Header.(type) {
 		case *mail.InlineHeader:
-			if strings.HasPrefix(p.Header.Get("Content-Type"), "text/html") && hadPlan {
+			b, _ := ioutil.ReadAll(p.Body)
+			bodycontent := string(b)
+
+			if strings.HasPrefix(p.Header.Get("Content-Type"), "text/html") {
+				htmlBody = bodycontent
 				continue
 			}
 
 			if strings.HasPrefix(p.Header.Get("Content-Type"), "text/plain") {
-				hadPlan = true
+				plainBody = bodycontent
+				continue
 			}
-			b, _ := ioutil.ReadAll(p.Body)
-			bodycontent := string(b)
-			parseMailBody(&bodycontent)
-			jmail.body = bodycontent
+
+			plainBody = bodycontent
 		case *mail.AttachmentHeader:
 			filename, _ := h.Filename()
 			jmail.attachment += string(filename)
 		}
 	}
+
+	if len(htmlBody) > 0 {
+		jmail.body = html.UnescapeString(htmlBody)
+		parseLines(&jmail.body)
+		jmail.htmlFormat = true
+	} else {
+		parseMailBody(&plainBody)
+		jmail.body = plainBody
+		jmail.htmlFormat = false
+	}
+
 	return &jmail
+}
+
+func parseLines(body *string) {
+	*body = strings.TrimRight(*body, "\r\n")
+	*body = strings.TrimLeft(*body, "\r\n")
+	*body = strings.ReplaceAll(*body, "\r\n\r\n", "\n")
 }
 
 func parseMailBody(body *string) {
 	*body = strip.StripTags(html.UnescapeString(*body))
-	*body = strings.TrimRight(*body, "\r\n")
-	*body = strings.TrimLeft(*body, "\r\n")
-	*body = strings.ReplaceAll(*body, "\r\n\r\n", "\n")
+	parseLines(body)
 }

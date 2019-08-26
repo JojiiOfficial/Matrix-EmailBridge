@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"fmt"
+	"html"
 	"log"
 	"strconv"
 	"strings"
@@ -117,8 +118,8 @@ func startMatrixSync(client *mautrix.Client) {
 					deleteWritingTemp(roomID)
 					account, err := getSMTPAccount(roomID)
 					if err != nil {
-						WriteLog(critical, "#45 saveWritingtemp: "+err.Error())
-						client.SendText(roomID, "An server-error occured Errorcode: #45")
+						WriteLog(critical, "#52 saveWritingtemp: "+err.Error())
+						client.SendText(roomID, "An server-error occured Errorcode: #52")
 						return
 					}
 
@@ -128,7 +129,12 @@ func startMatrixSync(client *mautrix.Client) {
 					m.SetHeader("Subject", writeTemp.subject)
 
 					if writeTemp.markdown {
-						m.SetBody("text/html", string(markdown.ToHTML([]byte(writeTemp.body), nil, nil)))
+						toSendText := string(markdown.ToHTML([]byte(writeTemp.body), nil, nil))
+						toSendText = strings.ReplaceAll(toSendText, "\r\n<h", "<h")
+						toSendText = strings.ReplaceAll(toSendText, "\n\n<h", "<h")
+						toSendText = strings.ReplaceAll(toSendText, ">\n\n", ">")
+						toSendText = strings.ReplaceAll(toSendText, "\r\n", "<br>")
+						m.SetBody("text/html", toSendText)
 					} else {
 						m.SetBody("text/plain", writeTemp.body)
 					}
@@ -139,7 +145,7 @@ func startMatrixSync(client *mautrix.Client) {
 					}
 					if err := d.DialAndSend(m); err != nil {
 						WriteLog(logError, "#46 DialAndSend: "+err.Error())
-						client.SendText(roomID, "An server-error occured Errorcode: #45\r\n"+err.Error())
+						client.SendText(roomID, "An server-error occured Errorcode: #53\r\n"+err.Error())
 						removeSMTPAccount(roomID)
 						client.SendText(roomID, "To fix this errer you have to run !setup smtp .... again")
 						return
@@ -156,8 +162,8 @@ func startMatrixSync(client *mautrix.Client) {
 						err = saveWritingtemp(roomID, "body", writeTemp.body+message+"\r\n")
 					}
 					if err != nil {
-						WriteLog(critical, "#45 saveWritingtemp: "+err.Error())
-						client.SendText(roomID, "An server-error occured Errorcode: #45")
+						WriteLog(critical, "#54 saveWritingtemp: "+err.Error())
+						client.SendText(roomID, "An server-error occured Errorcode: #54")
 						deleteWritingTemp(roomID)
 						return
 					}
@@ -617,7 +623,24 @@ func fetchNewMails(mClient *client.Client, account *imapAccountount) {
 func handleMail(mail *imap.Message, section *imap.BodySectionName, account imapAccountount) {
 	content := getMailContent(mail, section)
 	fmt.Println(content.body)
-	matrixClient.SendText(account.roomID, "## You've got a new Email FROM "+content.from)
-	matrixClient.SendText(account.roomID, "Subject: "+content.subject)
-	matrixClient.SendText(account.roomID, content.body)
+	from := html.EscapeString(content.from)
+	headerContent := &mautrix.Content{
+		Format:        mautrix.FormatHTML,
+		Body:          "\r\n────────────────────────────────────\r\n## You've got a new Email from " + from + "\r\n" + "Subject: " + content.subject + "\r\n────────────────────────────────────",
+		FormattedBody: "<br>────────────────────────────────────<br><b> You've got a new Email</b> from <b>" + from + "</b><br>" + "Subject: " + content.subject + "<br>────────────────────────────────────",
+		MsgType:       mautrix.MsgText,
+	}
+	matrixClient.SendMessageEvent(account.roomID, mautrix.EventMessage, &headerContent)
+
+	if content.htmlFormat {
+		bodyContent := &mautrix.Content{
+			Format:        mautrix.FormatHTML,
+			Body:          content.body,
+			FormattedBody: string(markdown.ToHTML([]byte(content.body), nil, nil)),
+			MsgType:       mautrix.MsgText,
+		}
+		matrixClient.SendMessageEvent(account.roomID, mautrix.EventMessage, &bodyContent)
+	} else {
+		matrixClient.SendText(account.roomID, content.body)
+	}
 }

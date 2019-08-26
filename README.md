@@ -25,6 +25,7 @@ Note: you should change the permissions of the <code>cfg.json</code> and <code>d
 - [X]  Use custom mailbox instead of INBOX
 - [X]  Send emails
 - [X]  Use markdown for writing emails (optional)
+- [X]  Viewing HTML messages (as good as your matrix-client supports html)
 - [ ]  Use commands to move/delete emails
 
 <br>
