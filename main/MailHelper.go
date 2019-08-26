@@ -178,7 +178,6 @@ func getMailContent(msg *imap.Message, section *imap.BodySectionName, roomID str
 	}
 	if len(htmlBody) > 0 && isEnabled {
 		jmail.body = html.UnescapeString(htmlBody)
-		parseLines(&jmail.body)
 		jmail.htmlFormat = true
 	} else {
 		if len(strings.Trim(plainBody, " ")) == 0 {
@@ -192,13 +191,7 @@ func getMailContent(msg *imap.Message, section *imap.BodySectionName, roomID str
 	return &jmail
 }
 
-func parseLines(body *string) {
-	// *body = strings.TrimLeft(*body, "\r\n")
-	// *body = strings.ReplaceAll(*body, "\r\n\r\n", "\n")
-}
-
 func parseMailBody(body *string) {
 	*body = strings.ReplaceAll(*body, "<br>", "\r\n")
 	*body = strip.StripTags(html.UnescapeString(*body))
-	parseLines(body)
 }

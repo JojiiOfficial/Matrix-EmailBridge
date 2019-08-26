@@ -25,6 +25,8 @@ import (
 var matrixClient *mautrix.Client
 var db *sql.DB
 
+const version = 4
+
 func initDB() error {
 	database, era := sql.Open("sqlite3", "./data.db")
 	if era != nil {
@@ -44,6 +46,12 @@ func initCfg() bool {
 	err := viper.ReadInConfig()
 	if err != nil {
 		fmt.Println("config not found. creating new one")
+
+		rr := saveVersion(version)
+		if rr != nil {
+			panic(rr)
+		}
+
 		viper.SetDefault("matrixServer", "matrix.org")
 		viper.SetDefault("matrixaccesstoken", "hlaksdjhaslkfslkj")
 		viper.SetDefault("matrixuserid", "@m:matrix.org")
@@ -573,15 +581,15 @@ func startMatrixSync(client *mautrix.Client) {
 func main() {
 	initLogger()
 
-	exit := initCfg()
-	if exit {
-		return
-	}
-
 	er := initDB()
 	if er == nil {
 		createAllTables()
+		exit := initCfg()
+		if exit {
+			return
+		}
 		WriteLog(success, "create tables")
+		handleDBVersion()
 	} else {
 		WriteLog(critical, "#08 creating tables: "+er.Error())
 		panic(er)

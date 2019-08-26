@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
+	"strconv"
 
 	"github.com/spf13/viper"
 )
@@ -31,12 +32,122 @@ type smtpAccount struct {
 	roomPKID, port, pk               int
 }
 
+type dbChange struct {
+	version int
+	changes string
+}
+
 var tables = []table{
 	table{"mail", "mail TEXT, room INTEGER"},
 	table{"rooms", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, roomID TEXT, imapAccount INTEGER DEFAULT -1, smtpAccount INTEGER DEFAULT -1, mailCheckInterval INTEGER, isHTMLenabled INTEGER"},
 	table{"imapAccounts", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, host TEXT, username TEXT, password TEXT, ignoreSSL INTEGER, mailbox TEXT"},
 	table{"smtpAccounts", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, host TEXT, port int, username TEXT, password TEXT, ignoreSSL INTEGER"},
-	table{"emailWritingTemp", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, roomID TEXT, receiver TEXT, subject TEXT DEFAULT ' ', body TEXT DEFAULT ' ', markdown INTEGER"}}
+	table{"emailWritingTemp", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, roomID TEXT, receiver TEXT, subject TEXT DEFAULT ' ', body TEXT DEFAULT ' ', markdown INTEGER"},
+	table{"version", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, version INTEGER"}}
+
+func handleDBVersion() {
+	countVersions, err := dbCountVersion()
+	if err != nil {
+		panic(err)
+	}
+	if countVersions == 1 {
+		vers, err := readVersion()
+		if err != nil {
+			WriteLog(logError, "#59 countVersions=1 mail: "+err.Error())
+			log.Fatal("An critical error accoured. Try to restart")
+			return
+		}
+		if vers != version {
+			startDBupgrader(vers)
+		}
+	} else if countVersions == 0 {
+		err := saveVersion(1)
+		if err != nil {
+			WriteLog(logError, "#60 countVersions=0 mail: "+err.Error())
+			log.Fatal("An critical error accoured. Try to restart")
+			return
+		}
+		startDBupgrader(1)
+	} else {
+		WriteLog(logError, "#61 countVersions>1 mail")
+		log.Fatal("An critical error accoured. Try to restart")
+	}
+}
+
+func saveVersion(version int) error {
+	_, err := db.Exec("DELETE FROM version")
+	if err != nil {
+		WriteLog(logError, "#62 countVersions mail: "+err.Error())
+		log.Fatal("An critical error accoured. Try to restart")
+		return err
+	}
+	stmt, err := db.Prepare("INSERT INTO version (version) VALUES(?)")
+	if err != nil {
+		WriteLog(logError, "#57 countVersions mail: "+err.Error())
+		log.Fatal("An critical error accoured. Try to restart")
+		return err
+	}
+	_, err = stmt.Exec(version)
+	if err != nil {
+		WriteLog(logError, "#58 countVersionsExec mail: "+err.Error())
+		log.Fatal("An critical error accoured. Try to restart")
+		return err
+	}
+	return nil
+}
+
+var dbChanges = []dbChange{
+	dbChange{2, "ALTER TABLE rooms ADD isHTMLenabled INTEGER"},
+	dbChange{2, "UPDATE rooms SET isHTMLenabled=0"}}
+
+func startDBupgrader(oldVers int) {
+	WriteLog(info, "starting db upgrade from version "+strconv.Itoa(oldVers)+" to "+strconv.Itoa(version))
+	var err error
+	for _, change := range dbChanges {
+		if change.version > oldVers {
+			_, err = db.Exec(change.changes)
+			if err != nil {
+				break
+			}
+		}
+	}
+	if err != nil {
+		WriteLog(critical, "#63 Error upgrading db: "+err.Error())
+		return
+	}
+	err = saveVersion(version)
+	if err != nil {
+		WriteLog(critical, "#64 Error upgrading db: "+err.Error())
+		return
+	}
+}
+
+func readVersion() (vers int, err error) {
+	stmt, err := db.Prepare("SELECT version FROM version")
+	if err != nil {
+		return 0, err
+	}
+
+	err = stmt.QueryRow().Scan(&vers)
+	if err != nil {
+		return 0, err
+	}
+	return vers, nil
+}
+
+func dbCountVersion() (int, error) {
+	stmt, err := db.Prepare("SELECT COUNT(version) FROM version")
+	if err != nil {
+		return -1, err
+	}
+	defer stmt.Close()
+	var count int
+	err = stmt.QueryRow().Scan(&count)
+	if err != nil {
+		return -1, err
+	}
+	return count, nil
+}
 
 func insertEmail(email string, roomPK int) error {
 	if val, err := dbContainsMail(email, roomPK); val && err == nil {
