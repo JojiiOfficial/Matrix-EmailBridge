@@ -31,21 +31,21 @@ func loginMail(host, username, password string, ignoreSSL bool) (*client.Client,
 	return ailClient, nil
 }
 
-func getMails(mClient *client.Client, mBox string, messages chan *imap.Message) *imap.BodySectionName {
+func getMails(mClient *client.Client, mBox string, messages chan *imap.Message) (*imap.BodySectionName, int) {
 	mbox, err := mClient.Select(mBox, false)
 	if err != nil {
 		WriteLog(logError, "#12 couldnt get INBOX "+err.Error())
-		return nil
+		return nil, 0
 	}
 
 	if mbox == nil {
 		WriteLog(logError, "#23 getMails mbox is nli")
-		return nil
+		return nil, 0
 	}
 
 	if mbox.Messages == 0 {
 		WriteLog(logError, "#13 getMails no messages in inbox ")
-		return nil
+		return nil, 1
 	}
 
 	seqSet := new(imap.SeqSet)
@@ -64,7 +64,7 @@ func getMails(mClient *client.Client, mBox string, messages chan *imap.Message) 
 			WriteLog(critical, "#14 couldnt fetch messages: "+err.Error())
 		}
 	}()
-	return section
+	return section, -1
 }
 
 type email struct {

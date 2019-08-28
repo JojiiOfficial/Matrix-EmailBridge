@@ -616,10 +616,27 @@ func stopMailChecker(roomID string) {
 
 var listenerMap map[string]chan bool
 var clients map[string]*client.Client
+var imapErrors map[string]*imapError
+
+const maxErrUntilReconnect = 10
+
+type imapError struct {
+	retryCount, loginErrCount int
+}
+
+func hasError(roomID string) (has bool, count int) {
+	_, ok := imapErrors[roomID]
+	if ok {
+		return true, imapErrors[roomID].retryCount
+	}
+	return false, -1
+}
 
 func startMailSchedeuler() {
 	listenerMap = make(map[string]chan bool)
 	clients = make(map[string]*client.Client)
+	imapErrors = make(map[string]*imapError)
+
 	accounts, err := getimapAccounts()
 	if err != nil {
 		WriteLog(critical, "#09 reading accounts: "+err.Error())
@@ -657,9 +674,25 @@ func startMailListener(account imapAccountount) {
 
 func fetchNewMails(mClient *client.Client, account *imapAccountount) {
 	messages := make(chan *imap.Message, 1)
-	section := getMails(mClient, account.mailbox, messages)
+	section, errCode := getMails(mClient, account.mailbox, messages)
 
 	if section == nil {
+		if errCode == 0 {
+			haserr, errCount := hasError(account.roomID)
+			if haserr {
+				if errCount < maxErrUntilReconnect {
+					imapErrors[account.roomID].retryCount++
+				} else {
+					stopMailChecker(account.roomID)
+					imapErrors[account.roomID].retryCount = 0
+					imapErrors[account.roomID].loginErrCount++
+					nacc := account
+					startMailListener(*nacc)
+					WriteLog(info, "Try login again for account: '"+account.username+"' because of too much inbox-read-errors!")
+					return
+				}
+			}
+		}
 		if account.silence {
 			account.silence = false
 		}
