@@ -4,3 +4,4 @@ sleep 5
 go get
 go build
 ./main
+chmod 600 cfg.json data.db
