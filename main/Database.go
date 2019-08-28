@@ -106,18 +106,14 @@ func startDBupgrader(oldVers int) {
 	for _, change := range dbChanges {
 		if change.version > oldVers {
 			_, err = db.Exec(change.changes)
-			if err != nil {
-				break
-			}
 		}
 	}
 	if err != nil {
 		WriteLog(critical, "#63 Error upgrading db: "+err.Error())
-		return
 	}
 	err = saveVersion(version)
 	if err != nil {
-		WriteLog(critical, "#64 Error upgrading db: "+err.Error())
+		WriteLog(critical, "#64 Error upgrading/saveVersion db: "+err.Error())
 		return
 	}
 }

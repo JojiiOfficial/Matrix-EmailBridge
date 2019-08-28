@@ -25,7 +25,7 @@ import (
 var matrixClient *mautrix.Client
 var db *sql.DB
 
-const version = 4
+const version = 5
 
 func initDB() error {
 	database, era := sql.Open("sqlite3", "./data.db")
