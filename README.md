@@ -23,7 +23,7 @@ Note: you should change the permissions of the <code>cfg.json</code> and <code>d
 - [X]  Ignore SSL certs if required
 - [X]  Detailed error codes/logging 
 - [X]  Use custom mailbox instead of INBOX
-- [X]  Sending emails
+- [X]  Sending emails (to one or multiple participants)
 - [X]  Use markdown (automatically translated to HTML) for writing emails (optional)
 - [X]  Viewing HTML messages (as good as your matrix-client supports html)
 
