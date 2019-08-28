@@ -137,6 +137,10 @@ func startMatrixSync(client *mautrix.Client) {
 		if evt.Sender != client.UserID && evt.Content.Membership == "leave" {
 			stopMailChecker(evt.RoomID)
 			deleteRoomAndEmailByRoomID(evt.RoomID)
+			_, err := client.LeaveRoom(evt.RoomID)
+			if err != nil {
+				WriteLog(critical, "#65 bot can't leave room: "+err.Error())
+			}
 		}
 	})
 
