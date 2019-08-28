@@ -1,5 +1,5 @@
 # Matrix-EmailBridge
-A simple matrix-bridge written in GOlang to let you read and write your emails in matrix. You can have multiple emailaccounts in different private rooms.
+A matrix-bridge written in Go to let you read and write your emails in matrix. You can have multiple emailaccounts in different private rooms, write emails to multiple 
 
 ## Information
 This bridge is currently in development. Its not 100% tested
