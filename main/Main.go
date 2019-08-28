@@ -180,7 +180,14 @@ func startMatrixSync(client *mautrix.Client) {
 
 					m := gomail.NewMessage()
 					m.SetHeader("From", account.username)
-					m.SetHeader("To", writeTemp.receiver)
+
+					if strings.Contains(writeTemp.receiver, ",") {
+						recEmails := strings.Split(writeTemp.receiver, ",")
+						m.SetHeader("To", recEmails...)
+					} else {
+						m.SetHeader("To", writeTemp.receiver)
+					}
+
 					m.SetHeader("Subject", writeTemp.subject)
 
 					if writeTemp.markdown {
@@ -425,10 +432,10 @@ func startMatrixSync(client *mautrix.Client) {
 				}
 			} else if message == "!help" {
 				helpText := "-------- Help --------\r\n"
-				helpText += "!setup imap/smtp, host:port, username(em@ail.com), password, <mailbox (only for imap)> ,ignoreSSLcert(true/false) - creates a bridge for this room\r\n"
+				helpText += "!setup imap/smtp, host:port, username(em@ail.com), password, <mailbox (only for imap)>, ignoreSSLcert(true/false) - creates a bridge for this room\r\n"
 				helpText += "!ping - gets information about the email bridge for this room\r\n"
 				helpText += "!help - shows this command help overview\r\n"
-				helpText += "!write (receiver email) <markdown default:true>- sends an email to a given address\r\n"
+				helpText += "!write (receiver(s) email(s) splitted by space!) <markdown default:true>- sends an email to a given address\r\n"
 				helpText += "!mailboxes - shows a list with all mailboxes available on your IMAP server\r\n"
 				helpText += "!setmailbox (mailbox) - changes the mailbox for the room\r\n"
 				helpText += "!mailbox - shows the currently selected mailbox\r\n"
@@ -467,6 +474,22 @@ func startMatrixSync(client *mautrix.Client) {
 					s := strings.Split(message, " ")
 					if len(s) > 1 {
 						receiver := strings.Trim(s[1], " ")
+						if len(s) > 2 {
+							receiverString := ""
+							for i := 1; i < len(s); i++ {
+								recEmail := strings.Trim(s[i], " ")
+								if len(recEmail) == 0 || !strings.Contains(recEmail, "@") || !strings.Contains(recEmail, ".") || strings.Contains(receiverString, recEmail) {
+									continue
+								}
+								add := ","
+								if strings.HasSuffix(recEmail, ",") {
+									add = ""
+								}
+								receiverString += strings.Trim(s[i], " ") + add
+							}
+							receiver = receiverString[:len(receiverString)-1]
+						}
+
 						if strings.Contains(receiver, "@") && strings.Contains(receiver, ".") && len(receiver) > 5 {
 							hasTemp, err := isUserWritingEmail(roomID)
 							if err != nil {
