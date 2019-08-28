@@ -58,9 +58,19 @@ func initCfg() bool {
 		viper.SetDefault("defuaultmailCheckInterval", 10)
 		viper.SetDefault("markdownEnabledByDefault", true)
 		viper.SetDefault("htmlDefault", false)
+		viper.SetDefault("allowed_servers", [1]string{"YourMatrixServerDomain.com"})
 		viper.WriteConfigAs("./cfg.json")
 		return true
 	}
+
+	allowedHosts := viper.GetStringSlice("allowed_servers")
+	if len(allowedHosts) == 0 {
+		allowedHosts = make([]string, 1)
+		allowedHosts[0] = "YourMatrixServerDomain.com"
+		viper.SetDefault("allowed_servers", allowedHosts)
+		viper.WriteConfigAs("./cfg.json")
+	}
+
 	return false
 }
 
@@ -81,14 +91,46 @@ func loginMatrix() {
 	go startMatrixSync(client)
 }
 
+func getHostFromMatrixID(matrixID string) (host string, err int) {
+	if strings.Contains(matrixID, ":") {
+		splt := strings.Split(matrixID, ":")
+		if len(splt) == 2 {
+			return splt[1], -1
+		}
+		return "", 1
+	}
+	return "", 0
+}
+
+func contains(a []string, x string) bool {
+	for _, n := range a {
+		if x == n {
+			return true
+		}
+	}
+	return false
+}
+
 func startMatrixSync(client *mautrix.Client) {
 	fmt.Println(client.UserID)
 
 	syncer := client.Syncer.(*mautrix.DefaultSyncer)
 
 	syncer.OnEventType(mautrix.StateJoinRules, func(evt *mautrix.Event) {
-		client.JoinRoom(evt.RoomID, "", nil)
-		client.SendText(evt.RoomID, "Hey you have invited me to a new room. Enter !login to bridge this room to a Mail account")
+		host, err := getHostFromMatrixID(evt.Sender)
+		if err == -1 {
+			listcontains := contains(viper.GetStringSlice("allowed_servers"), host)
+			if listcontains {
+				client.JoinRoom(evt.RoomID, "", nil)
+				client.SendText(evt.RoomID, "Hey you have invited me to a new room. Enter !login to bridge this room to a Mail account")
+			} else {
+				client.LeaveRoom(evt.RoomID)
+				WriteLog(info, "Got invalid invite from "+evt.Sender+" reason: senders server not whitelisted! Adjust your config if you want to allow this host using me")
+				return
+			}
+		} else {
+			WriteLog(critical, "")
+		}
 	})
 
 	syncer.OnEventType(mautrix.StateMember, func(evt *mautrix.Event) {
