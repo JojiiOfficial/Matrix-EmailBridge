@@ -33,3 +33,4 @@ Note: you should change the permissions of the <code>cfg.json</code> and <code>d
 - [ ]  Attaching files sent into the bridged room
 - [ ]  System to send passwords not in plaintext
 - [ ]  Add more header (CC/Bcc)
+- [ ]  Update the installerscript
