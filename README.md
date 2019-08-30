@@ -1,6 +1,8 @@
 # Matrix-EmailBridge
 A matrix-bridge written in Go to let you read and write your emails in matrix. You can have multiple emailaccounts in different private rooms, write emails to multiple 
 
+<b>Matrix room:</b> <a href="https://matrix.to/#/#jojiiMail:matrix.jojii.de" target="_blank">#jojiiMail:matrix.jojii.de</a>
+
 ## Information
 This bridge is currently in development. Its not 100% tested
 <br>
@@ -27,5 +29,7 @@ Note: you should change the permissions of the <code>cfg.json</code> and <code>d
 - [X]  Use markdown (automatically translated to HTML) for writing emails (optional)
 - [X]  Viewing HTML messages (as good as your matrix-client supports html)
 
-<br>
-<b>Matrix room:</b> <a href="https://matrix.to/#/#jojiiMail:matrix.jojii.de" target="_blank">#jojiiMail:matrix.jojii.de</a>
+## TODO
+- [ ]  Attaching files sent into bridge
+- [ ]  System to send passwords not in plaintext
+- [ ]  Add more header (CC/Bcc)
