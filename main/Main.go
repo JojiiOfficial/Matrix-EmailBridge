@@ -67,7 +67,6 @@ func initCfg() bool {
 	if ae == 0 {
 		viper.SetDefault("defaultmailCheckInterval", 1)
 		viper.WriteConfigAs("./cfg.json")
-		viper.
 	}
 
 	allowedHosts := viper.GetStringSlice("allowed_servers")
