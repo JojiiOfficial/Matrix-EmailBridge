@@ -686,11 +686,23 @@ func stopMailChecker(roomID string) {
 var listenerMap map[string]chan bool
 var clients map[string]*client.Client
 var imapErrors map[string]*imapError
+var checksPerAccount map[string]int
+
+const maxRoomChecks = 15
 
 const maxErrUntilReconnect = 10
 
 type imapError struct {
 	retryCount, loginErrCount int
+}
+
+func getChecksForAccount(roomID string) int {
+	checks, ok := checksPerAccount[roomID]
+	if ok {
+		return checks
+	}
+	checksPerAccount[roomID] = 0
+	return 0
 }
 
 func hasError(roomID string) (has bool, count int) {
@@ -705,6 +717,7 @@ func startMailSchedeuler() {
 	listenerMap = make(map[string]chan bool)
 	clients = make(map[string]*client.Client)
 	imapErrors = make(map[string]*imapError)
+	checksPerAccount = make(map[string]int)
 
 	accounts, err := getimapAccounts()
 	if err != nil {
@@ -734,11 +747,23 @@ func startMailListener(account imapAccountount) {
 			case <-quit:
 				return
 			default:
+				if getChecksForAccount(account.roomID) >= maxRoomChecks {
+					reconnect(account)
+					return
+				}
 				fetchNewMails(mClient, &account)
+				checksPerAccount[account.roomID]++
 				time.Sleep((time.Duration)(account.mailCheckInterval) * time.Second)
 			}
 		}
 	}()
+}
+
+func reconnect(account imapAccountount) {
+	checksPerAccount[account.roomID] = 0
+	stopMailChecker(account.roomID)
+	nacc := account
+	go startMailListener(nacc)
 }
 
 func fetchNewMails(mClient *client.Client, account *imapAccountount) {
@@ -749,15 +774,15 @@ func fetchNewMails(mClient *client.Client, account *imapAccountount) {
 		if errCode == 0 {
 			haserr, errCount := hasError(account.roomID)
 			if haserr {
+				if imapErrors[account.roomID].loginErrCount > 15 {
+					WriteLog(logError, "Youve got too much errors for the emailaccount: "+account.username)
+				}
 				if errCount < maxErrUntilReconnect {
 					imapErrors[account.roomID].retryCount++
 				} else {
-					stopMailChecker(account.roomID)
 					imapErrors[account.roomID].retryCount = 0
 					imapErrors[account.roomID].loginErrCount++
-					nacc := account
-					startMailListener(*nacc)
-					WriteLog(info, "Try login again for account: '"+account.username+"' because of too much inbox-read-errors!")
+					reconnect(*account)
 					return
 				}
 			}
