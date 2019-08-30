@@ -25,7 +25,7 @@ import (
 var matrixClient *mautrix.Client
 var db *sql.DB
 
-const version = 5
+const version = 6
 
 func initDB() error {
 	database, era := sql.Open("sqlite3", "./data.db")
@@ -55,12 +55,19 @@ func initCfg() bool {
 		viper.SetDefault("matrixServer", "matrix.org")
 		viper.SetDefault("matrixaccesstoken", "hlaksdjhaslkfslkj")
 		viper.SetDefault("matrixuserid", "@m:matrix.org")
-		viper.SetDefault("defuaultmailCheckInterval", 10)
+		viper.SetDefault("defaultmailCheckInterval", 30)
 		viper.SetDefault("markdownEnabledByDefault", true)
 		viper.SetDefault("htmlDefault", false)
 		viper.SetDefault("allowed_servers", [1]string{"YourMatrixServerDomain.com"})
 		viper.WriteConfigAs("./cfg.json")
 		return true
+	}
+
+	ae := viper.GetInt("defaultmailCheckInterval")
+	if ae == 0 {
+		viper.SetDefault("defaultmailCheckInterval", 1)
+		viper.WriteConfigAs("./cfg.json")
+		viper.
 	}
 
 	allowedHosts := viper.GetStringSlice("allowed_servers")
@@ -264,7 +271,7 @@ func startMatrixSync(client *mautrix.Client) {
 						mailbox = strings.ReplaceAll(s[4], " ", "")
 					}
 					var err error
-					defaultMailSyncInterval := viper.GetInt("defuaultmailCheckInterval")
+					defaultMailSyncInterval := viper.GetInt("defaultmailCheckInterval")
 					imapAccID, smtpAccID, erro := getRoomAccounts(roomID)
 					if erro != nil {
 						client.SendText(roomID, "Something went wrong! Contact the admin. Errorcode: #37")
