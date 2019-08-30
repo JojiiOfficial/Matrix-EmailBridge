@@ -30,6 +30,6 @@ Note: you should change the permissions of the <code>cfg.json</code> and <code>d
 - [X]  Viewing HTML messages (as good as your matrix-client supports html)
 
 ## TODO
-- [ ]  Attaching files sent into bridge
+- [ ]  Attaching files sent into the bridged room
 - [ ]  System to send passwords not in plaintext
 - [ ]  Add more header (CC/Bcc)
