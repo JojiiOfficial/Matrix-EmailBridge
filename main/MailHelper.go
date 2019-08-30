@@ -49,8 +49,8 @@ func getMails(mClient *client.Client, mBox string, messages chan *imap.Message) 
 	}
 
 	seqSet := new(imap.SeqSet)
-	maxMessages := uint32(10)
-	if mbox.Messages < 10 {
+	maxMessages := uint32(5)
+	if mbox.Messages < maxMessages {
 		maxMessages = mbox.Messages
 	}
 	for i := uint32(0); i < maxMessages; i++ {

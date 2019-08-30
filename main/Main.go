@@ -760,6 +760,7 @@ func startMailListener(account imapAccountount) {
 }
 
 func reconnect(account imapAccountount) {
+	WriteLog(info, "reconnecting account "+account.username)
 	checksPerAccount[account.roomID] = 0
 	stopMailChecker(account.roomID)
 	nacc := account
