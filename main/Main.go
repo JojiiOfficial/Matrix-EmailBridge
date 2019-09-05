@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 	"html"
+	"io"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -25,6 +27,7 @@ import (
 var matrixClient *mautrix.Client
 var db *sql.DB
 
+const tempDir = "./temp/"
 const version = 6
 
 func initDB() error {
@@ -166,6 +169,10 @@ func startMatrixSync(client *mautrix.Client) {
 				return
 			}
 			if len(strings.Trim(writeTemp.subject, " ")) == 0 {
+				if evt.Content.MsgType != mautrix.MsgText {
+					client.SendText(roomID, "You have to send a text for subject!")
+					return
+				}
 				err = saveWritingtemp(roomID, "subject", message)
 				if err != nil {
 					WriteLog(critical, "#44 saveWritingtemp: "+err.Error())
@@ -176,11 +183,11 @@ func startMatrixSync(client *mautrix.Client) {
 				client.SendText(roomID, "Now send me the content of the email. One message is one line. If you want to send or cancle enter !send or !cancel")
 			} else {
 				if message == "!send" {
-					deleteWritingTemp(roomID)
 					account, err := getSMTPAccount(roomID)
 					if err != nil {
 						WriteLog(critical, "#52 saveWritingtemp: "+err.Error())
 						client.SendText(roomID, "An server-error occured Errorcode: #52")
+						deleteWritingTemp(roomID)
 						return
 					}
 
@@ -211,34 +218,84 @@ func startMatrixSync(client *mautrix.Client) {
 						m.SetBody("text/plain", writeTemp.body)
 					}
 
+					attachments, err := getAttachments(writeTemp.pkID)
+					if err == nil {
+						for _, i := range attachments {
+							client.SendText(roomID, "Attaching file: "+i)
+							fmt.Println(tempDir + i)
+							m.Attach(tempDir + i)
+						}
+					} else {
+						client.SendText(roomID, "coulnd't attach files: "+err.Error())
+					}
+
 					d := gomail.NewDialer(account.host, account.port, account.username, account.password)
 					if account.ignoreSSL {
 						d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
 					}
+					client.SendText(roomID, "Sending...")
 					if err := d.DialAndSend(m); err != nil {
 						WriteLog(logError, "#46 DialAndSend: "+err.Error())
 						client.SendText(roomID, "An server-error occured Errorcode: #53\r\n"+err.Error())
 						removeSMTPAccount(roomID)
 						client.SendText(roomID, "To fix this errer you have to run !setup smtp .... again")
+						deleteWritingTemp(roomID)
 						return
 					}
 					client.SendText(roomID, "Message sent successfully")
+					deleteWritingTemp(roomID)
 				} else if message == "!cancel" {
 					client.SendText(roomID, "Mail canceled")
 					deleteWritingTemp(roomID)
 					return
-				} else {
-					if len(strings.ReplaceAll(writeTemp.body, " ", "")) == 0 {
-						err = saveWritingtemp(roomID, "body", message+"\r\n")
-					} else {
-						err = saveWritingtemp(roomID, "body", writeTemp.body+message+"\r\n")
+				} else if strings.HasPrefix(message, "!rm") && len(strings.Split(message, " ")) > 0 {
+					splitted := strings.Split(message, " ")[1:]
+					var fileName string
+					for _, a := range splitted {
+						fileName += a + " "
 					}
+					fileName = strings.TrimRight(fileName, " ")
+					fileName = strings.TrimLeft(fileName, " ")
+					fmt.Println(fileName)
+					err := deleteAttachment(fileName, writeTemp.pkID)
 					if err != nil {
-						WriteLog(critical, "#54 saveWritingtemp: "+err.Error())
-						client.SendText(roomID, "An server-error occured Errorcode: #54")
-						deleteWritingTemp(roomID)
+						client.SendText(roomID, "Couldn't delete attachment: "+err.Error())
 						return
 					}
+					_ = os.Remove(tempDir + fileName)
+					client.SendText(roomID, "Attachment deleted!")
+
+				} else {
+					if evt.Content.MsgType == mautrix.MsgText {
+						if len(strings.ReplaceAll(writeTemp.body, " ", "")) == 0 {
+							err = saveWritingtemp(roomID, "body", message+"\r\n")
+						} else {
+							err = saveWritingtemp(roomID, "body", writeTemp.body+message+"\r\n")
+						}
+						if err != nil {
+							WriteLog(critical, "#54 saveWritingtemp: "+err.Error())
+							client.SendText(roomID, "An server-error occured Errorcode: #54")
+							deleteWritingTemp(roomID)
+							return
+						}
+					} else if evt.Content.MsgType == mautrix.MsgFile || evt.Content.MsgType == mautrix.MsgImage {
+						if strings.HasPrefix(evt.Content.URL, "mxc://") {
+							reader, err := client.Download(evt.Content.URL)
+							if err != nil {
+								client.SendText(roomID, "Couldn't download File: "+err.Error())
+							} else {
+								filename := strconv.Itoa(int(time.Now().Unix())) + "_" + evt.Content.Body
+								err := streamToTempFile(reader, filename)
+								if err != nil {
+									client.SendText(roomID, "Couldn't download file: "+err.Error())
+								} else {
+									addEmailAttachment(writeTemp.pkID, filename)
+									client.SendText(roomID, "File "+filename+" attached!")
+								}
+							}
+						}
+					}
+
 				}
 			}
 		} else if err != nil {
@@ -445,7 +502,10 @@ func startMatrixSync(client *mautrix.Client) {
 				helpText += "!mailboxes - shows a list with all mailboxes available on your IMAP server\r\n"
 				helpText += "!setmailbox (mailbox) - changes the mailbox for the room\r\n"
 				helpText += "!mailbox - shows the currently selected mailbox\r\n"
-				helpText += "!sethtml (on/off or true/false) - sets HTML-rendering for messages on/off"
+				helpText += "!sethtml (on/off or true/false) - sets HTML-rendering for messages on/off\r\n"
+				helpText += "\r\n---- Email writing commands ----\r\n"
+				helpText += "!send - sends the email\r\n"
+				helpText += "!rm <file> - removes given attachment from email\r\n"
 				client.SendText(roomID, helpText)
 			} else if message == "!ping" {
 				if has, err := hasRoom(roomID); has && err == nil {
@@ -651,6 +711,42 @@ func startMatrixSync(client *mautrix.Client) {
 		WriteLog(logError, "#07 Syncing: "+err.Error())
 		fmt.Println(err)
 	}
+}
+
+func deleteTempFile(name string) {
+	os.Remove(tempDir + name)
+}
+
+func streamToTempFile(stream io.ReadCloser, file string) error {
+	if _, err := os.Stat(tempDir); os.IsNotExist(err) {
+		os.Mkdir(tempDir, os.ModePerm)
+	}
+	fo, err := os.Create(tempDir + file)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err := fo.Close(); err != nil {
+
+		}
+	}()
+
+	buf := make([]byte, 1024)
+	for {
+		n, err := stream.Read(buf)
+		if err != nil && err != io.EOF {
+			return err
+		}
+		if n == 0 {
+			break
+		}
+
+		if _, err := fo.Write(buf[:n]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func main() {

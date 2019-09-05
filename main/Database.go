@@ -43,7 +43,9 @@ var tables = []table{
 	table{"imapAccounts", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, host TEXT, username TEXT, password TEXT, ignoreSSL INTEGER, mailbox TEXT"},
 	table{"smtpAccounts", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, host TEXT, port int, username TEXT, password TEXT, ignoreSSL INTEGER"},
 	table{"emailWritingTemp", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, roomID TEXT, receiver TEXT, subject TEXT DEFAULT ' ', body TEXT DEFAULT ' ', markdown INTEGER"},
-	table{"version", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, version INTEGER"}}
+	table{"version", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, version INTEGER"},
+	table{"emailAttachments", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, writeTempID INTEGER, fileName TEXT"},
+}
 
 func handleDBVersion() {
 	countVersions, err := dbCountVersion()
@@ -174,7 +176,28 @@ func dbContainsMail(mail string, roomPK int) (bool, error) {
 	return (count > 0), nil
 }
 
+func deleteAttachments(roomID string) {
+	stmt, err := db.Prepare("SELECT pk_id FROM emailWritingTemp WHERE roomID=?")
+	if err == nil {
+		var pkid int
+		err = stmt.QueryRow(roomID).Scan(&pkid)
+		if err == nil {
+			attachments, err := getAttachments(pkid)
+			if err == nil {
+				for _, i := range attachments {
+					deleteTempFile(i)
+				}
+			}
+			stmt, err = db.Prepare("DELETE FROM emailAttachments WHERE writeTempID=?")
+			if err == nil {
+				stmt.Exec(pkid)
+			}
+		}
+	}
+}
+
 func deleteWritingTemp(roomID string) error {
+	deleteAttachments(roomID)
 	stmt, err := db.Prepare("DELETE FROM emailWritingTemp WHERE roomID=?")
 	if err != nil {
 		return err
@@ -195,6 +218,39 @@ func newWritingTemp(roomID, receiver string) error {
 	}
 	_, err = stmt.Exec(roomID, receiver)
 	return err
+}
+
+func addEmailAttachment(emailid int, filename string) error {
+	stmt, err := db.Prepare("INSERT INTO emailAttachments (writeTempID, fileName) VALUES(?,?)")
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(emailid, filename)
+	return err
+}
+
+func deleteAttachment(fileName string, writeTempID int) error {
+	stmt, err := db.Prepare("DELETE FROM emailAttachments WHERE fileName=? AND writeTempID=?")
+	if err != nil {
+		return err
+	}
+	stmt.Exec(fileName, writeTempID)
+	return nil
+}
+
+func getAttachments(writingTempID int) ([]string, error) {
+	rows, err := db.Query("SELECT fileName FROM emailAttachments WHERE writeTempID=?", writingTempID)
+	if err != nil {
+		return nil, err
+	}
+
+	var attachments []string
+	var name string
+	for rows.Next() {
+		rows.Scan(&name)
+		attachments = append(attachments, name)
+	}
+	return attachments, nil
 }
 
 func getWritingTemp(roomID string) (*emailTemp, error) {
