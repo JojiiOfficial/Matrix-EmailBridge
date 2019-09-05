@@ -28,9 +28,10 @@ Note: you should change the permissions of the <code>cfg.json</code> and <code>d
 - [X]  Sending emails (to one or multiple participants)
 - [X]  Use markdown (automatically translated to HTML) for writing emails (optional)
 - [X]  Viewing HTML messages (as good as your matrix-client supports html)
+- [X]  Attaching files sent into the bridged room
 
 ## TODO
-- [ ]  Attaching files sent into the bridged room
+
 - [ ]  System to send passwords not in plaintext
 - [ ]  Add more header (CC/Bcc)
 - [ ]  Update the installerscript
