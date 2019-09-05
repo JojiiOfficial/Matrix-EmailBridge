@@ -222,7 +222,6 @@ func startMatrixSync(client *mautrix.Client) {
 					if err == nil {
 						for _, i := range attachments {
 							client.SendText(roomID, "Attaching file: "+i)
-							fmt.Println(tempDir + i)
 							m.Attach(tempDir + i)
 						}
 					} else {
@@ -915,12 +914,16 @@ func fetchNewMails(mClient *client.Client, account *imapAccountount) {
 
 func handleMail(mail *imap.Message, section *imap.BodySectionName, account imapAccountount) {
 	content := getMailContent(mail, section, account.roomID)
+	if content == nil {
+		return
+	}
 	fmt.Println(content.body)
 	from := html.EscapeString(content.from)
+	fmt.Println("attachments: " + content.attachment)
 	headerContent := &mautrix.Content{
 		Format:        mautrix.FormatHTML,
-		Body:          "\r\n────────────────────────────────────\r\n## You've got a new Email from " + from + "\r\n" + "Subject: " + content.subject + "\r\n────────────────────────────────────",
-		FormattedBody: "<br>────────────────────────────────────<br><b> You've got a new Email</b> from <b>" + from + "</b><br>" + "Subject: " + content.subject + "<br>────────────────────────────────────",
+		Body:          "\r\n────────────────────────────────────\r\n## You've got a new Email from " + from + "\r\n" + "Subject: " + content.subject + "\r\n" + "────────────────────────────────────",
+		FormattedBody: "<br>────────────────────────────────────<br><b> You've got a new Email</b> from <b>" + from + "</b><br>" + "Subject: " + content.subject + "<br>" + "────────────────────────────────────",
 		MsgType:       mautrix.MsgText,
 	}
 	matrixClient.SendMessageEvent(account.roomID, mautrix.EventMessage, &headerContent)

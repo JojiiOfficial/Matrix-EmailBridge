@@ -169,7 +169,7 @@ func getMailContent(msg *imap.Message, section *imap.BodySectionName, roomID str
 			plainBody = bodycontent
 		case *mail.AttachmentHeader:
 			filename, _ := h.Filename()
-			jmail.attachment += string(filename)
+			jmail.attachment += string(filename) + "\r\n"
 		}
 	}
 	isEnabled, eror := isHTMLenabled(roomID)
