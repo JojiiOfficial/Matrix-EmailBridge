@@ -305,6 +305,10 @@ func deleteRoomAndEmailByRoomID(roomID string) {
 	stmt4.Exec(roomID)
 
 	deleteMails(roomID)
+
+	stmt2, err := db.Prepare("DELETE FROM rooms WHERE roomID=?")
+	checkErr(err)
+	stmt2.Exec(roomID)
 }
 
 func deleteMails(roomID string) {
