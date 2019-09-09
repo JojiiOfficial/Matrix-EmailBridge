@@ -107,7 +107,6 @@ func getMailContent(msg *imap.Message, section *imap.BodySectionName, roomID str
 	}
 
 	jmail := email{}
-
 	mr, err := mail.CreateReader(r)
 	if err != nil {
 		fmt.Println(err.Error())

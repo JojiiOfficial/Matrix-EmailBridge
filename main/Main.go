@@ -833,13 +833,22 @@ func startMailSchedeuler() {
 
 func startMailListener(account imapAccountount) {
 	quit := make(chan bool)
-	mClient, err := loginMail(account.host, account.username, account.password, account.ignoreSSL)
-	if err != nil {
-		WriteLog(logError, "#10 email account error: "+err.Error())
-		matrixClient.SendText(account.roomID, "Error:\r\n"+err.Error()+"\r\n\r\nBecause of this error you have to login to your account again using !setup")
-		deleteRoomAndEmailByRoomID(account.roomID)
-		return
+	connectSuccess := false
+	var mClient *client.Client
+	var err error
+	for !connectSuccess {
+		mClient, err = loginMail(account.host, account.username, account.password, account.ignoreSSL)
+		if err == nil {
+			connectSuccess = true
+			WriteLog(info, "couldn't connect to imap server try again n a some minutes: "+err.Error())
+			// matrixClient.SendText(account.roomID, "Error:\r\n"+err.Error()+"\r\n\r\nBecause of this error you have to login to your account again using !setup")
+			// deleteRoomAndEmailByRoomID(account.roomID)
+			continue
+		} else {
+			time.Sleep(1 * time.Minute)
+		}
 	}
+
 	listenerMap[account.roomID] = quit
 	clients[account.roomID] = mClient
 	go func() {
