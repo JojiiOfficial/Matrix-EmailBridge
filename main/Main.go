@@ -840,11 +840,9 @@ func startMailListener(account imapAccountount) {
 		mClient, err = loginMail(account.host, account.username, account.password, account.ignoreSSL)
 		if err == nil {
 			connectSuccess = true
-			WriteLog(info, "couldn't connect to imap server try again n a some minutes: "+err.Error())
-			// matrixClient.SendText(account.roomID, "Error:\r\n"+err.Error()+"\r\n\r\nBecause of this error you have to login to your account again using !setup")
-			// deleteRoomAndEmailByRoomID(account.roomID)
 			continue
 		} else {
+			WriteLog(info, "couldn't connect to imap server try again n a some minutes: "+err.Error())
 			time.Sleep(1 * time.Minute)
 		}
 	}
