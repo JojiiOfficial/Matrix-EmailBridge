@@ -32,6 +32,7 @@ Note: you should change the permissions of the <code>cfg.json</code> and <code>d
 
 ## TODO
 
+- [ ]  Emailaddress blocklist (Ignore emails from given emailaddress)
 - [ ]  System to send passwords not in plaintext
 - [ ]  Add more header (CC/Bcc)
 - [ ]  Update the installerscript
