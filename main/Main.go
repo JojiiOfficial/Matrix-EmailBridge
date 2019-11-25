@@ -120,6 +120,19 @@ func contains(a []string, x string) bool {
 	return false
 }
 
+func logOut(client *mautrix.Client, roomID string, leave bool) error {
+	stopMailChecker(roomID)
+	deleteRoomAndEmailByRoomID(roomID)
+	if leave {
+		_, err := client.LeaveRoom(roomID)
+		if err != nil {
+			WriteLog(critical, "#65 bot can't leave room: "+err.Error())
+			return err
+		}
+	}
+	return nil
+}
+
 func startMatrixSync(client *mautrix.Client) {
 	fmt.Println(client.UserID)
 
@@ -144,12 +157,7 @@ func startMatrixSync(client *mautrix.Client) {
 
 	syncer.OnEventType(mautrix.StateMember, func(evt *mautrix.Event) {
 		if evt.Sender != client.UserID && evt.Content.Membership == "leave" {
-			stopMailChecker(evt.RoomID)
-			deleteRoomAndEmailByRoomID(evt.RoomID)
-			_, err := client.LeaveRoom(evt.RoomID)
-			if err != nil {
-				WriteLog(critical, "#65 bot can't leave room: "+err.Error())
-			}
+			logOut(client, evt.RoomID, true)
 		}
 	})
 
@@ -502,6 +510,8 @@ func startMatrixSync(client *mautrix.Client) {
 				helpText += "!setmailbox (mailbox) - changes the mailbox for the room\r\n"
 				helpText += "!mailbox - shows the currently selected mailbox\r\n"
 				helpText += "!sethtml (on/off or true/false) - sets HTML-rendering for messages on/off\r\n"
+				helpText += "!logout remove email bridge from current room\r\n"
+				helpText += "!leave unbridge the current room and kick the bot\r\n"
 				helpText += "\r\n---- Email writing commands ----\r\n"
 				helpText += "!send - sends the email\r\n"
 				helpText += "!rm <file> - removes given attachment from email\r\n"
@@ -698,6 +708,20 @@ func startMatrixSync(client *mautrix.Client) {
 					}
 				} else {
 					client.SendText(roomID, "You have to setup an IMAP account to use this command. Use !setup or !login for more informations")
+				}
+			} else if message == "!logout" {
+				err := logOut(client, roomID, false)
+				if err != nil {
+					client.SendText(roomID, "Error logging out: "+err.Error())
+				} else {
+					client.SendText(roomID, "Successfully logged out")
+				}
+			} else if message == "!leave" {
+				err := logOut(client, roomID, true)
+				if err != nil {
+					client.SendText(roomID, "Error leaving: "+err.Error())
+				} else {
+					client.SendText(roomID, "Successfully unbridged")
 				}
 			} else if strings.HasPrefix(message, "!") {
 				client.SendText(roomID, "command not found!")
