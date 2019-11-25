@@ -4,3 +4,4 @@ kill.sh
 main/logs
 cfg.json
 store.json
+logs
