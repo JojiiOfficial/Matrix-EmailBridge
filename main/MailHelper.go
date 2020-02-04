@@ -120,11 +120,15 @@ func getMailContent(msg *imap.Message, section *imap.BodySectionName, roomID str
 		jmail.date = date
 	}
 	if from, err := header.AddressList("From"); err == nil {
-		log.Println("From:", from)
-		for i := 0; i < len(from); i++ {
-			jmail.from += from[i].String() + ", "
+		list := make([]string, len(from))
+		for i, sender := range from {
+			if len(sender.Name) > 0 {
+				list[i] = sender.Name + "<" + sender.Address + ">"
+			} else {
+				list[i] = sender.Address
+			}
 		}
-		jmail.from = jmail.from[:len(jmail.from)-2]
+		jmail.from = strings.Join(list, ",")
 	}
 	if to, err := header.AddressList("To"); err == nil {
 		log.Println("To:", to)
@@ -173,7 +177,7 @@ func getMailContent(msg *imap.Message, section *imap.BodySectionName, roomID str
 	}
 	isEnabled, eror := isHTMLenabled(roomID)
 	if eror != nil {
-		WriteLog(critical, "#55 isHTMLenabled: "+err.Error())
+		WriteLog(critical, "#55 isHTMLenabled: "+eror.Error())
 	}
 	if len(htmlBody) > 0 && isEnabled {
 		jmail.body = html.UnescapeString(htmlBody)
