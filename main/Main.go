@@ -383,13 +383,13 @@ func startMatrixSync(client *mautrix.Client) {
 									newRoomID = insertNewRoom(roomID, defaultMailSyncInterval)
 									if newRoomID == -1 {
 										client.SendText(roomID, "An error occured! contact your admin! Errorcode: #26")
-										WriteLog(critical, "checking insertNewRoom #26: "+er.Error())
+										WriteLog(critical, "checking insertNewRoom #26")
 										return
 									}
 								} else {
 									id, err := getRoomPKID(evt.RoomID)
 									if err != nil {
-										WriteLog(critical, "checking getRoomPKID #27: "+er.Error())
+										WriteLog(critical, "checking getRoomPKID #27: "+err.Error())
 										client.SendText(roomID, "An error occured! contact your admin! Errorcode: #27")
 										return
 									}
@@ -454,13 +454,13 @@ func startMatrixSync(client *mautrix.Client) {
 								newRoomID = insertNewRoom(roomID, defaultMailSyncInterval)
 								if newRoomID == -1 {
 									client.SendText(roomID, "An error occured! contact your admin! Errorcode: #29")
-									WriteLog(critical, "checking insertNewRoom #29: "+er.Error())
+									WriteLog(critical, "checking insertNewRoom #29: ")
 									return
 								}
 							} else {
 								id, err := getRoomPKID(evt.RoomID)
 								if err != nil {
-									WriteLog(critical, "checking getRoomPKID #30: "+er.Error())
+									WriteLog(critical, "checking getRoomPKID #30: "+err.Error())
 									client.SendText(roomID, "An error occured! contact your admin! Errorcode: #30")
 									return
 								}
@@ -518,11 +518,6 @@ func startMatrixSync(client *mautrix.Client) {
 				client.SendText(roomID, helpText)
 			} else if message == "!ping" {
 				if has, err := hasRoom(roomID); has && err == nil {
-					if err != nil {
-						WriteLog(logError, "#06 hasRoom: "+err.Error())
-						client.SendText(roomID, "An server-error occured")
-						return
-					}
 					roomData, err := getRoomInfo(roomID)
 					if err != nil {
 						WriteLog(logError, "#006 getRoomInfo: "+err.Error())
@@ -532,13 +527,18 @@ func startMatrixSync(client *mautrix.Client) {
 
 					client.SendText(roomID, roomData)
 				} else {
-					client.SendText(roomID, "You have to login to use this command!")
+					if err != nil {
+						WriteLog(logError, "#06 hasRoom: "+err.Error())
+						client.SendText(roomID, "An server-error occured")
+					} else {
+						client.SendText(roomID, "You have to login to use this command!")
+					}
 				}
 			} else if strings.HasPrefix(message, "!write") {
 				if has, err := hasRoom(roomID); has && err == nil {
 					_, smtpAccID, erro := getRoomAccounts(roomID)
 					if erro != nil {
-						WriteLog(critical, "#38 getRoomAccounts: "+err.Error())
+						WriteLog(critical, "#38 getRoomAccounts: "+erro.Error())
 						client.SendText(roomID, "An server-error occured Errorcode: #38")
 						return
 					}
@@ -575,7 +575,7 @@ func startMatrixSync(client *mautrix.Client) {
 							if hasTemp {
 								er := deleteWritingTemp(roomID)
 								if er != nil {
-									WriteLog(critical, "#40 deleteWritingTemp: "+err.Error())
+									WriteLog(critical, "#40 deleteWritingTemp: "+er.Error())
 									client.SendText(roomID, "An server-error occured Errorcode: #40")
 									return
 								}
@@ -616,7 +616,7 @@ func startMatrixSync(client *mautrix.Client) {
 			} else if message == "!mailboxes" {
 				imapAccID, _, erro := getRoomAccounts(roomID)
 				if erro != nil {
-					WriteLog(critical, "#48 getRoomAccounts: "+err.Error())
+					WriteLog(critical, "#48 getRoomAccounts: "+erro.Error())
 					client.SendText(roomID, "An server-error occured Errorcode: #48")
 					return
 				}
@@ -634,7 +634,7 @@ func startMatrixSync(client *mautrix.Client) {
 			} else if strings.HasPrefix(message, "!setmailbox") {
 				imapAccID, _, erro := getRoomAccounts(roomID)
 				if erro != nil {
-					WriteLog(critical, "#48 getRoomAccounts: "+err.Error())
+					WriteLog(critical, "#48 getRoomAccounts: "+erro.Error())
 					client.SendText(roomID, "An server-error occured Errorcode: #48")
 					return
 				}
@@ -663,7 +663,7 @@ func startMatrixSync(client *mautrix.Client) {
 			} else if message == "!mailbox" {
 				imapAccID, _, erro := getRoomAccounts(roomID)
 				if erro != nil {
-					WriteLog(critical, "#50 getRoomAccounts: "+err.Error())
+					WriteLog(critical, "#50 getRoomAccounts: "+erro.Error())
 					client.SendText(roomID, "An server-error occured Errorcode: #50")
 					return
 				}
@@ -681,7 +681,7 @@ func startMatrixSync(client *mautrix.Client) {
 			} else if strings.HasPrefix(message, "!sethtml") {
 				imapAccID, _, erro := getRoomAccounts(roomID)
 				if erro != nil {
-					WriteLog(critical, "#50 getRoomAccounts: "+err.Error())
+					WriteLog(critical, "#50 getRoomAccounts: "+erro.Error())
 					client.SendText(roomID, "An server-error occured Errorcode: #50")
 					return
 				}

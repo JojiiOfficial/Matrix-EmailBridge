@@ -543,7 +543,7 @@ func getimapAccounts() ([]imapAccountount, error) {
 		}
 		pass, berr := base64.StdEncoding.DecodeString(password)
 		if berr != nil {
-			fmt.Println(err.Error())
+			fmt.Println(berr.Error())
 			continue
 		}
 		list = append(list, imapAccountount{host, username, string(pass), roomID, mailbox, ignssl, roomPKID, mailCheckInterval, false})
@@ -573,7 +573,7 @@ func getIMAPAccount(roomID string) (*imapAccountount, error) {
 	pass, berr := base64.StdEncoding.DecodeString(password)
 
 	if berr != nil {
-		fmt.Println(err.Error())
+		fmt.Println(berr.Error())
 		return nil, berr
 	}
 
@@ -598,7 +598,7 @@ func getSMTPAccount(roomID string) (*smtpAccount, error) {
 	}
 	pass, berr := base64.StdEncoding.DecodeString(password)
 	if berr != nil {
-		fmt.Println(err.Error())
+		fmt.Println(berr.Error())
 		return nil, berr
 	}
 	return &smtpAccount{host, username, string(pass), roomID, ignSSL, roomPKID, port, pk}, nil

@@ -131,11 +131,15 @@ func getMailContent(msg *imap.Message, section *imap.BodySectionName, roomID str
 		jmail.from = strings.Join(list, ",")
 	}
 	if to, err := header.AddressList("To"); err == nil {
-		log.Println("To:", to)
-		for i := 0; i < len(to); i++ {
-			jmail.to += to[i].String() + ", "
+		list := make([]string, len(to))
+		for i, receiver := range to {
+			if len(receiver.Name) > 0 {
+				list[i] = receiver.Name + "<" + receiver.Address + ">"
+			} else {
+				list[i] = receiver.Address
+			}
 		}
-		jmail.to = jmail.to[:len(jmail.to)-2]
+		jmail.to = strings.Join(list, ",")
 	}
 	if subject, err := header.Subject(); err == nil {
 		log.Println("Subject:", subject)

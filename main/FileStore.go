@@ -7,6 +7,7 @@ import (
 	"github.com/tulir/mautrix-go"
 )
 
+//FileStore required by the bridgeAPI
 type FileStore struct {
 	path string
 
@@ -15,6 +16,7 @@ type FileStore struct {
 	Rooms     map[string]*mautrix.Room `json:"-"`
 }
 
+//NewFileStore creates a new filestore
 func NewFileStore(path string) *FileStore {
 	return &FileStore{
 		path:  path,
@@ -22,6 +24,7 @@ func NewFileStore(path string) *FileStore {
 	}
 }
 
+//Save saves the store
 func (fs *FileStore) Save() error {
 	data, err := json.Marshal(fs)
 	if err != nil {
@@ -31,6 +34,7 @@ func (fs *FileStore) Save() error {
 	return err
 }
 
+//Load loads the store
 func (fs *FileStore) Load() error {
 	data, err := ioutil.ReadFile(fs.path)
 	if err != nil {
@@ -40,28 +44,34 @@ func (fs *FileStore) Load() error {
 	return err
 }
 
+//SaveFilterID sets filterID and saves
 func (fs *FileStore) SaveFilterID(_, filterID string) {
 	fs.FilterID = filterID
 	fs.Save()
 }
 
+//LoadFilterID loadsFilterID
 func (fs *FileStore) LoadFilterID(_ string) string {
 	return fs.FilterID
 }
 
+//SaveNextBatch saves Next batch
 func (fs *FileStore) SaveNextBatch(_, nextBatchToken string) {
 	fs.NextBatch = nextBatchToken
 	fs.Save()
 }
 
+//LoadNextBatch loads  next batch
 func (fs *FileStore) LoadNextBatch(_ string) string {
 	return fs.NextBatch
 }
 
+//SaveRoom saves room
 func (fs *FileStore) SaveRoom(room *mautrix.Room) {
 	fs.Rooms[room.ID] = room
 }
 
+//LoadRoom loads room
 func (fs *FileStore) LoadRoom(roomID string) *mautrix.Room {
 	return fs.Rooms[roomID]
 }
