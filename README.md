@@ -11,7 +11,15 @@ You can run the install.sh to install it. If that doesn't work, use the steps be
 
 ## Install
 ### Compile method
-Clone this repository and run <code>go get</code> inside the folder to fetch the required dependencies and <code>go build -o emailbridge</code> to compile it. Afterwards execute the created binary(`./emailbridge`).<br>
+Clone this repository and run inside the folder
+```bash
+go get    #fetch the required dependencies
+```
+and 
+```bash
+go build -o emailbridge    #compile it
+```
+Afterwards execute the created binary(`./emailbridge`).<br><br>
 --> [Configure](https://github.com/JojiiOfficial/Matrix-EmailBridge#Get-started)
 
 ### Docker method
