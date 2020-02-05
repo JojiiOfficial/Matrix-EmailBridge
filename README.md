@@ -30,16 +30,22 @@ docker pull jojii/matrix_email_bridge
 ```
 to pull the image. Then create a container by running
 ```bash
-docker run -it --name emailbridge -v $(pwd)/data:/go/src/app/ jojii/matrix_email_bridge
+docker run -d \
+--restart unless-stopped \
+-v `pwd`/data:/app/data \
+--name email_bridge \
+jojii/matrix_email_bridge
 ```
 <br>
 This will create and start a new Docker Container and create a new dir called 'data' in the current directory. In this folder data.db, cfg.json and the logs will be stored.<br>
 
 After [configuring the bridge](https://github.com/JojiiOfficial/Matrix-EmailBridge#Get-started) you have to run
 ```bash
-docker run emailbridge  #start the bridge
+docker start email_bridge  #start the bridge
 ```
-
+`
+Note: 'localhost' as 'matrixserver' (in cfg.json) wouldn't work because of dockers own network. You have to specify the internal IP address of the matrix-synapse server!
+`
 # Get started
 You have to adjust the config file (cfg.json) to make it work with your matrix server.
 Invite your bridge into a private room, it will join automatically.
