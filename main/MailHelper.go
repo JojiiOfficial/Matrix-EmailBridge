@@ -13,7 +13,6 @@ import (
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
 	"github.com/emersion/go-message/mail"
-	_ "github.com/emersion/go-message/mail"
 	strip "github.com/grokify/html-strip-tags-go"
 )
 

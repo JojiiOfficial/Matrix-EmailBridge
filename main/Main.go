@@ -13,25 +13,24 @@ import (
 	"time"
 
 	"github.com/gomarkdown/markdown"
+	"gopkg.in/gomail.v2"
 
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
-	_ "github.com/emersion/go-imap/client"
-	_ "github.com/emersion/go-sasl"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/viper"
 	"github.com/tulir/mautrix-go"
-	"gopkg.in/gomail.v2"
 )
 
-var matrixClient *mautrix.Client
-var db *sql.DB
-
-const tempDir = "./temp/"
 const version = 6
 
+var db *sql.DB
+var matrixClient *mautrix.Client
+var tempDir = "temp/"
+var dirPrefix string
+
 func initDB() error {
-	database, era := sql.Open("sqlite3", "./data.db")
+	database, era := sql.Open("sqlite3", dirPrefix+"data.db")
 	if era != nil {
 		panic(era)
 	}
@@ -42,8 +41,8 @@ func initDB() error {
 //returns true if app should exit
 func initCfg() bool {
 	viper.SetConfigType("json")
-	viper.SetConfigFile("./cfg.json")
-	viper.AddConfigPath("./")
+	viper.SetConfigFile(dirPrefix + "cfg.json")
+	viper.AddConfigPath(dirPrefix)
 	viper.SetConfigName("cfg")
 
 	err := viper.ReadInConfig()
@@ -62,14 +61,14 @@ func initCfg() bool {
 		viper.SetDefault("markdownEnabledByDefault", true)
 		viper.SetDefault("htmlDefault", false)
 		viper.SetDefault("allowed_servers", [1]string{"YourMatrixServerDomain.com"})
-		viper.WriteConfigAs("./cfg.json")
+		viper.WriteConfigAs(dirPrefix + "cfg.json")
 		return true
 	}
 
 	ae := viper.GetInt("defaultmailCheckInterval")
 	if ae == 0 {
 		viper.SetDefault("defaultmailCheckInterval", 1)
-		viper.WriteConfigAs("./cfg.json")
+		viper.WriteConfigAs(dirPrefix + "cfg.json")
 	}
 
 	allowedHosts := viper.GetStringSlice("allowed_servers")
@@ -77,7 +76,7 @@ func initCfg() bool {
 		allowedHosts = make([]string, 1)
 		allowedHosts[0] = "YourMatrixServerDomain.com"
 		viper.SetDefault("allowed_servers", allowedHosts)
-		viper.WriteConfigAs("./cfg.json")
+		viper.WriteConfigAs(dirPrefix + "cfg.json")
 	}
 
 	return false
@@ -93,7 +92,7 @@ func loginMatrix() {
 	}
 	matrixClient = client
 
-	store := NewFileStore("store.json")
+	store := NewFileStore(dirPrefix + "store.json")
 	store.Load()
 	client.Store = store
 
@@ -773,6 +772,34 @@ func streamToTempFile(stream io.ReadCloser, file string) error {
 }
 
 func main() {
+	dirPrefix = "./"
+	if len(os.Getenv("BRIDGE_DATA_PATH")) > 0 {
+		argDir := os.Getenv("BRIDGE_DATA_PATH")
+		if !strings.HasPrefix(argDir, "/") && !strings.HasPrefix(argDir, "./") {
+			argDir = "./" + argDir
+		}
+		if !strings.HasSuffix(argDir, "/") {
+			argDir = argDir + "/"
+		}
+		s, err := os.Stat(argDir)
+		if err != nil {
+			err = os.Mkdir(argDir, 0750)
+			if err != nil {
+				fmt.Printf("Error creating dir %s\n%s\n", argDir, err.Error())
+				os.Exit(1)
+				return
+			}
+		} else {
+			if !s.IsDir() {
+				fmt.Printf("%s is not a dir!\n", argDir)
+				os.Exit(1)
+				return
+			}
+		}
+		dirPrefix = argDir
+	}
+	tempDir = dirPrefix + tempDir
+
 	initLogger()
 
 	er := initDB()
@@ -948,7 +975,6 @@ func handleMail(mail *imap.Message, section *imap.BodySectionName, account imapA
 	if content == nil {
 		return
 	}
-	fmt.Println(content.body)
 	from := html.EscapeString(content.from)
 	fmt.Println("attachments: " + content.attachment)
 	headerContent := &mautrix.Content{

@@ -12,12 +12,13 @@ var logfile *os.File
 const logDir string = "logs/"
 
 func initLogger() {
-	if _, err := os.Stat("./" + logDir); os.IsNotExist(err) {
-		os.Mkdir("./"+logDir, 0770)
+	ld := dirPrefix + logDir
+	if _, err := os.Stat(ld); os.IsNotExist(err) {
+		os.Mkdir(ld, 0750)
 	}
 	var err error
 	time := strconv.Itoa(int(time.Now().Unix()))
-	logfile, err = os.OpenFile("./"+logDir+"access_"+time+".log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0660)
+	logfile, err = os.OpenFile(ld+"access_"+time+".log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		panic(err)
 	}
