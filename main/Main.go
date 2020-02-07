@@ -695,10 +695,20 @@ func startMatrixSync(client *mautrix.Client) {
 				}
 				sm := strings.Split(message, " ")
 				if len(sm) < 3 {
-					if len(sm) == 2 && sm[1] == "view" {
+					if len(sm) == 2 && (sm[1] == "view" || sm[1] == "list") {
 						viewBlocklist(roomID, client)
+					} else if len(sm) == 2 && sm[1] == "clear" {
+						err := clearBlocklist(imapAccID)
+						var msg string
+						if err != nil {
+							fmt.Println("Err:", err.Error())
+							msg = "Error clearing blocklist! View logs for more details!"
+						} else {
+							msg = "Blocklist is now clean!"
+						}
+						client.SendText(roomID, msg)
 					} else {
-						client.SendText(roomID, "Usage: !blocklist <add/delete/view> <email address>")
+						client.SendText(roomID, "Usage: !blocklist <add/delete/clear/view> <email address>")
 					}
 				} else {
 					cmd := strings.ToLower(sm[1])
@@ -716,11 +726,11 @@ func startMatrixSync(client *mautrix.Client) {
 									fmt.Println("Err:", err.Error())
 									msg = "Error adding " + addr + " to blocklist! View logs for more details!"
 								} else {
-									msg = "Success!"
+									msg = "Success adding " + addr + " to blocklist!"
 								}
 								client.SendText(roomID, msg)
 							}
-						case "remove", "delete":
+						case "remove", "delete", "rm":
 							{
 								err := removeEmailFromBlocklist(imapAccID, addr)
 								var msg string
@@ -728,7 +738,7 @@ func startMatrixSync(client *mautrix.Client) {
 									fmt.Println("Err:", err.Error())
 									msg = "Error deleting " + addr + " from blocklist! View logs for more details!"
 								} else {
-									msg = "Success!"
+									msg = "Success deleting " + addr + " from blocklist!"
 								}
 								client.SendText(roomID, msg)
 							}

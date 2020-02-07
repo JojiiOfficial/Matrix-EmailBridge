@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -693,9 +694,18 @@ func addEmailToBlocklist(imapAcc int, emailaddr string) error {
 	return err
 }
 
+func clearBlocklist(imapAcc int) error {
+	stmt, err := db.Prepare("DELETE FROM blocklist WHERE imapAccount=?")
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(imapAcc)
+	return err
+}
+
 func removeEmailFromBlocklist(imapAcc int, addr string) error {
 	if !isInBlocklist(imapAcc, addr) {
-		return nil
+		return errors.New("not on blocklist")
 	}
 	stmt, err := db.Prepare("DELETE FROM blocklist WHERE imapAccount=? AND address=?")
 	if err != nil {
