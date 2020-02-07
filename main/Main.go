@@ -708,7 +708,7 @@ func startMatrixSync(client *mautrix.Client) {
 						}
 						client.SendText(roomID, msg)
 					} else {
-						client.SendText(roomID, "Usage: !blocklist <add/delete/clear/view> <email address>")
+						client.SendText(roomID, "Usage: !blocklist <add/delete/clear/view> <email address>\nDon't show any emails from a given email address.\nWildcards (like *@evilEmailAddress.com) are supported")
 					}
 				} else {
 					cmd := strings.ToLower(sm[1])
