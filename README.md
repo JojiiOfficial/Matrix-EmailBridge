@@ -72,10 +72,10 @@ Note: you should change the permissions of the <code>cfg.json</code> and <code>d
 - [X]  Use markdown (automatically translated to HTML) for writing emails (optional)
 - [X]  Viewing HTML messages (as good as your matrix-client supports html)
 - [X]  Attaching files sent into the bridged room
+- [X]  Emailaddress blocklist (Ignore emails from given emailaddress)
 
 ## TODO
 
-- [ ]  Emailaddress blocklist (Ignore emails from given emailaddress)
 - [ ]  System to send passwords not in plaintext
 - [ ]  Add more header (CC/Bcc)
 - [ ]  Update the installerscript
