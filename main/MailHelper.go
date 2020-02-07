@@ -69,6 +69,7 @@ func getMails(mClient *client.Client, mBox string, messages chan *imap.Message) 
 
 type email struct {
 	body, from, to, subject, attachment string
+	sendermails                         []string
 	date                                time.Time
 	htmlFormat                          bool
 }
@@ -127,6 +128,7 @@ func getMailContent(msg *imap.Message, section *imap.BodySectionName, roomID str
 			} else {
 				list[i] = sender.Address
 			}
+			jmail.sendermails = append(jmail.sendermails, sender.Address)
 		}
 		jmail.from = strings.Join(list, ",")
 	}

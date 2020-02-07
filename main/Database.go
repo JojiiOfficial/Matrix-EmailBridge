@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -713,4 +714,31 @@ func removeEmailFromBlocklist(imapAcc int, addr string) error {
 	}
 	_, err = stmt.Exec(imapAcc, addr)
 	return err
+}
+
+//returns true if email matches blocklist
+func checkForBlocklist(roomID string, senderEmail string) bool {
+	acc, _, err := getRoomAccounts(roomID)
+	if err != nil {
+		fmt.Println("Err:", err.Error())
+		return false
+	}
+	blocklist := getBlocklist(acc)
+	for _, bll := range blocklist {
+		if strings.HasPrefix(bll, "*") || strings.HasSuffix(bll, "*") {
+			if strings.HasPrefix(bll, "*") && !strings.HasSuffix(bll, "*") {
+				return strings.HasSuffix(senderEmail, bll[1:])
+			} else if !strings.HasPrefix(bll, "*") && strings.HasSuffix(bll, "*") {
+				return strings.HasPrefix(senderEmail, bll[:len(bll)-1])
+			} else {
+				//has both
+				return strings.HasPrefix(senderEmail, bll[1:len(bll)-1]) && strings.HasSuffix(senderEmail, bll[1:len(bll)-1])
+			}
+		} else {
+			if bll == senderEmail {
+				return true
+			}
+		}
+	}
+	return true
 }

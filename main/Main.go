@@ -1035,6 +1035,13 @@ func handleMail(mail *imap.Message, section *imap.BodySectionName, account imapA
 	if content == nil {
 		return
 	}
+	for _, senderMail := range content.sendermails {
+		fmt.Println("checking", senderMail)
+		if checkForBlocklist(account.roomID, senderMail) {
+			fmt.Println("blocked email from ", senderMail)
+			return
+		}
+	}
 	from := html.EscapeString(content.from)
 	fmt.Println("attachments: " + content.attachment)
 	headerContent := &mautrix.Content{
