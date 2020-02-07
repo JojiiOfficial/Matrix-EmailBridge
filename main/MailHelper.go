@@ -14,6 +14,7 @@ import (
 	"github.com/emersion/go-imap/client"
 	"github.com/emersion/go-message/mail"
 	strip "github.com/grokify/html-strip-tags-go"
+	"github.com/tulir/mautrix-go"
 )
 
 func loginMail(host, username, password string, ignoreSSL bool) (*client.Client, error) {
@@ -200,4 +201,68 @@ func getMailContent(msg *imap.Message, section *imap.BodySectionName, roomID str
 func parseMailBody(body *string) {
 	*body = strings.ReplaceAll(*body, "<br>", "\r\n")
 	*body = strip.StripTags(html.UnescapeString(*body))
+}
+
+func viewMailbox(roomID string, client *mautrix.Client) {
+	imapAccID, _, erro := getRoomAccounts(roomID)
+	if erro != nil {
+		WriteLog(critical, "#50 getRoomAccounts: "+erro.Error())
+		client.SendText(roomID, "An server-error occured Errorcode: #50")
+		return
+	}
+	if imapAccID != -1 {
+		mailbox, err := getMailbox(roomID)
+		if err != nil {
+			WriteLog(critical, "#51 getMailbox: "+err.Error())
+			client.SendText(roomID, "An server-error occured Errorcode: #51")
+			return
+		}
+		client.SendText(roomID, "The current mailbox for this room is: "+mailbox)
+	} else {
+		client.SendText(roomID, "You have to setup an IMAP account to use this command. Use !setup or !login for more informations")
+	}
+}
+
+func viewMailboxes(roomID string, client *mautrix.Client) {
+	imapAccID, _, erro := getRoomAccounts(roomID)
+	if erro != nil {
+		WriteLog(critical, "#48 getRoomAccounts: "+erro.Error())
+		client.SendText(roomID, "An server-error occured Errorcode: #48")
+		return
+	}
+	if imapAccID != -1 {
+		mailboxes, err := getMailboxes(clients[roomID])
+		if err != nil {
+			WriteLog(critical, "#47 getMailboxes: "+err.Error())
+			client.SendText(roomID, "An server-error occured Errorcode: #47")
+			return
+		}
+		client.SendText(roomID, "Your mailboxes:\r\n"+mailboxes+"\r\nUse !setmailbox <mailbox> to change your mailbox")
+	} else {
+		client.SendText(roomID, "You have to setup an IMAP account to use this command. Use !setup or !login for more informations")
+	}
+}
+
+func viewBlocklist(roomID string, client *mautrix.Client) {
+	imapAccID, _, erro := getRoomAccounts(roomID)
+	if erro != nil {
+		WriteLog(critical, "#48 getRoomAccounts: "+erro.Error())
+		client.SendText(roomID, "An server-error occured Errorcode: #48")
+		return
+	}
+	if imapAccID != -1 {
+		blocklist := getBlocklist(imapAccID)
+		var msg string
+		if len(blocklist) > 0 {
+			msg = "Blocked addresses:\n"
+			for _, blo := range blocklist {
+				msg += "> " + blo + "\n"
+			}
+		} else {
+			msg = "No addresses blocked!"
+		}
+		client.SendText(roomID, msg)
+	} else {
+		client.SendText(roomID, "You have to setup an IMAP account to use this command. Use !setup or !login for more informations")
+	}
 }

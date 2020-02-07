@@ -22,7 +22,7 @@ import (
 	"github.com/tulir/mautrix-go"
 )
 
-const version = 6
+const version = 7
 
 var db *sql.DB
 var matrixClient *mautrix.Client
@@ -612,24 +612,6 @@ func startMatrixSync(client *mautrix.Client) {
 				} else {
 					client.SendText(roomID, "You have to login to use this command!")
 				}
-			} else if message == "!mailboxes" {
-				imapAccID, _, erro := getRoomAccounts(roomID)
-				if erro != nil {
-					WriteLog(critical, "#48 getRoomAccounts: "+erro.Error())
-					client.SendText(roomID, "An server-error occured Errorcode: #48")
-					return
-				}
-				if imapAccID != -1 {
-					mailboxes, err := getMailboxes(clients[roomID])
-					if err != nil {
-						WriteLog(critical, "#47 getMailboxes: "+err.Error())
-						client.SendText(roomID, "An server-error occured Errorcode: #47")
-						return
-					}
-					client.SendText(roomID, "Your mailboxes:\r\n"+mailboxes+"\r\nUse !setmailbox <mailbox> to change your mailbox")
-				} else {
-					client.SendText(roomID, "You have to setup an IMAP account to use this command. Use !setup or !login for more informations")
-				}
 			} else if strings.HasPrefix(message, "!setmailbox") {
 				imapAccID, _, erro := getRoomAccounts(roomID)
 				if erro != nil {
@@ -656,24 +638,6 @@ func startMatrixSync(client *mautrix.Client) {
 					} else {
 						client.SendText(roomID, "Usage: !setmailbox <new mailbox>")
 					}
-				} else {
-					client.SendText(roomID, "You have to setup an IMAP account to use this command. Use !setup or !login for more informations")
-				}
-			} else if message == "!mailbox" {
-				imapAccID, _, erro := getRoomAccounts(roomID)
-				if erro != nil {
-					WriteLog(critical, "#50 getRoomAccounts: "+erro.Error())
-					client.SendText(roomID, "An server-error occured Errorcode: #50")
-					return
-				}
-				if imapAccID != -1 {
-					mailbox, err := getMailbox(roomID)
-					if err != nil {
-						WriteLog(critical, "#51 getMailbox: "+err.Error())
-						client.SendText(roomID, "An server-error occured Errorcode: #51")
-						return
-					}
-					client.SendText(roomID, "The current mailbox for this room is: "+mailbox)
 				} else {
 					client.SendText(roomID, "You have to setup an IMAP account to use this command. Use !setup or !login for more informations")
 				}
@@ -722,6 +686,88 @@ func startMatrixSync(client *mautrix.Client) {
 				} else {
 					client.SendText(roomID, "Successfully unbridged")
 				}
+
+			} else if strings.HasPrefix(message, "!blocklist") || strings.HasPrefix(message, "!bl") {
+				imapAccID, _, _ := getRoomAccounts(roomID)
+				if imapAccID == -1 {
+					client.SendText(roomID, "You need to login with an imap account to use this command!")
+					return
+				}
+				sm := strings.Split(message, " ")
+				if len(sm) < 3 {
+					if len(sm) == 2 && sm[1] == "view" {
+						viewBlocklist(roomID, client)
+					} else {
+						client.SendText(roomID, "Usage: !blocklist <add/delete/view> <email address>")
+					}
+				} else {
+					cmd := strings.ToLower(sm[1])
+					addr := sm[2]
+					if !strings.Contains(addr, "@") || !strings.Contains(addr, ".") || len(addr) < 6 {
+						client.SendText(roomID, "Error! "+addr+" is an invalid email address!")
+					} else {
+						switch cmd {
+						case "add":
+							{
+								//add item to blocklis
+								err := addEmailToBlocklist(imapAccID, addr)
+								var msg string
+								if err != nil {
+									fmt.Println("Err:", err.Error())
+									msg = "Error adding " + addr + " to blocklist! View logs for more details!"
+								} else {
+									msg = "Success!"
+								}
+								client.SendText(roomID, msg)
+							}
+						case "remove", "delete":
+							{
+								err := removeEmailFromBlocklist(imapAccID, addr)
+								var msg string
+								if err != nil {
+									fmt.Println("Err:", err.Error())
+									msg = "Error deleting " + addr + " from blocklist! View logs for more details!"
+								} else {
+									msg = "Success!"
+								}
+								client.SendText(roomID, msg)
+							}
+						}
+					}
+				}
+			} else if strings.HasPrefix(message, "!view") {
+				imapAccID, _, _ := getRoomAccounts(roomID)
+				if imapAccID == -1 {
+					client.SendText(roomID, "You need to login with an imap account to use this command!")
+					return
+				}
+				sm := strings.Split(message, " ")
+				if len(sm) == 1 {
+					viewViewHelp(roomID, client)
+				} else if len(sm) > 1 {
+					switch strings.ToLower(sm[1]) {
+					case "mb", "mailbox":
+						{
+							viewMailbox(roomID, client)
+						}
+					case "mbs", "mailboxes":
+						{
+							viewMailboxes(roomID, client)
+						}
+					case "blocklist", "bl", "blocklists", "blo", "blocked":
+						{
+							viewBlocklist(roomID, client)
+						}
+					case "h", "help":
+						{
+							viewViewHelp(roomID, client)
+						}
+					default:
+						{
+							viewViewHelp(roomID, client)
+						}
+					}
+				}
 			} else if strings.HasPrefix(message, "!") {
 				client.SendText(roomID, "command not found!")
 			}
@@ -733,6 +779,10 @@ func startMatrixSync(client *mautrix.Client) {
 		WriteLog(logError, "#07 Syncing: "+err.Error())
 		fmt.Println(err)
 	}
+}
+
+func viewViewHelp(roomID string, client *mautrix.Client) {
+	client.SendText(roomID, "Available options:\n\nmb/mailbox\t-\tViews the current used mailbox\nmbs/mailboxes\t-\tView the available mailboxes\nbl/blocklist\t-\tViews the list of blocked addresses")
 }
 
 func deleteTempFile(name string) {

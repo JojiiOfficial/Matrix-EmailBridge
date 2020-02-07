@@ -100,13 +100,16 @@ func saveVersion(version int) error {
 
 var dbChanges = []dbChange{
 	dbChange{2, "ALTER TABLE rooms ADD isHTMLenabled INTEGER"},
-	dbChange{2, "UPDATE rooms SET isHTMLenabled=0"}}
+	dbChange{2, "UPDATE rooms SET isHTMLenabled=0"},
+	dbChange{7, "CREATE TABLE `blocklist` (`pkID` INTEGER PRIMARY KEY AUTOINCREMENT, `imapAccount` INTEGER, `address` INTEGER);"},
+}
 
 func startDBupgrader(oldVers int) {
 	WriteLog(info, "starting db upgrade from version "+strconv.Itoa(oldVers)+" to "+strconv.Itoa(version))
 	var err error
 	for _, change := range dbChanges {
 		if change.version > oldVers {
+			fmt.Println("Update Database:", change.changes)
 			_, err = db.Exec(change.changes)
 		}
 	}
@@ -654,4 +657,50 @@ func setHTMLenabled(roomID string, enabled bool) error {
 		return err
 	}
 	return nil
+}
+
+func getBlocklist(imapAccount int) []string {
+	rows, err := db.Query("SELECT address FROM blocklist WHERE imapAccount=?", imapAccount)
+	if err != nil {
+		fmt.Println("Err:", err.Error())
+		return []string{"Error fetching accounts:" + err.Error()}
+	}
+	var blocklist []string
+	var address string
+	for rows.Next() {
+		rows.Scan(&address)
+		blocklist = append(blocklist, address)
+	}
+	return blocklist
+}
+
+func isInBlocklist(imapAccount int, addr string) bool {
+	row := db.QueryRow("SELECT COUNT(*) FROM blocklist WHERE imapAccount=? AND address=?", imapAccount, addr)
+	var has int
+	row.Scan(&has)
+	return has == 1
+}
+
+func addEmailToBlocklist(imapAcc int, emailaddr string) error {
+	if isInBlocklist(imapAcc, emailaddr) {
+		return nil
+	}
+	stmt, err := db.Prepare("INSERT INTO blocklist (imapAccount, address) VALUES(?,?)")
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(imapAcc, emailaddr)
+	return err
+}
+
+func removeEmailFromBlocklist(imapAcc int, addr string) error {
+	if !isInBlocklist(imapAcc, addr) {
+		return nil
+	}
+	stmt, err := db.Prepare("DELETE FROM blocklist WHERE imapAccount=? AND address=?")
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(imapAcc, addr)
+	return err
 }
