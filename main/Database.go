@@ -740,5 +740,5 @@ func checkForBlocklist(roomID string, senderEmail string) bool {
 			}
 		}
 	}
-	return true
+	return false
 }
