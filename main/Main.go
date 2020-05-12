@@ -19,7 +19,8 @@ import (
 	"github.com/emersion/go-imap/client"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/viper"
-	"github.com/tulir/mautrix-go"
+	"maunium.net/go/mautrix"
+
 )
 
 const version = 7

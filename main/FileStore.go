@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 
-	"github.com/tulir/mautrix-go"
+	"maunium.net/go/mautrix"
 )
 
 //FileStore required by the bridgeAPI

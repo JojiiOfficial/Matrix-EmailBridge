@@ -14,7 +14,7 @@ import (
 	"github.com/emersion/go-imap/client"
 	"github.com/emersion/go-message/mail"
 	strip "github.com/grokify/html-strip-tags-go"
-	"github.com/tulir/mautrix-go"
+	"maunium.net/go/mautrix"
 )
 
 func loginMail(host, username, password string, ignoreSSL bool) (*client.Client, error) {
