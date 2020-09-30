@@ -20,7 +20,7 @@ and
 go build -o emailbridge    #compile it
 ```
 Afterwards execute the created binary(`./emailbridge`).<br><br>
---> [Configure](https://github.com/JojiiOfficial/Matrix-EmailBridge#Get-started)
+-> [Configure](https://github.com/JojiiOfficial/Matrix-EmailBridge#Get-started)
 
 ### Docker method
 DockerHub: https://hub.docker.com/repository/docker/jojii/matrix_email_bridge<br><br>
