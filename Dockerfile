@@ -1,8 +1,10 @@
-FROM golang:1.13.6-alpine as builder
+FROM golang:1.16.0-alpine as builder
 
 WORKDIR /app/matrixemailbridge
 
 COPY ./main/*.go ./
+COPY ./main/go.mod ./
+COPY ./main/go.sum ./
 
 RUN apk add --no-cache gcc musl-dev git
 RUN go get -d -v 
