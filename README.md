@@ -1,16 +1,17 @@
 # Matrix-EmailBridge
-A matrix-bridge written in Go to let you read and write your emails in matrix. You can have multiple email accounts in different private rooms and write emails to one or multiple recipients.
+A Matrix-bridge to allow you receiving and sending emails in Matrix. You can have multiple email accounts and write emails to one or multiple recipients.
 
 ## Installation
 ### Compile method
-Clone this repository and run inside the folder
-```bash
-go get -v
+```
+git clone https://github.com/JojiiOfficial/Matrix-EmailBridge
+cd Matrix-EmailBridge/main
+go get -v -u
 go build -o emailbridge
 ./emailbridge
 ```
 The last command executes the bridge once to create the probably missing config file.<br>
---> [Configure](https://github.com/JojiiOfficial/Matrix-EmailBridge#Get-started)
+Continue: --> [Configure](https://github.com/JojiiOfficial/Matrix-EmailBridge#Get-started)
 
 ### Docker method
 DockerHub: https://hub.docker.com/repository/docker/jojii/matrix_email_bridge<br><br>
@@ -45,7 +46,7 @@ Note: 'localhost' as 'matrixserver' (in cfg.json) wouldn't work because of docke
 3. Invite your bot into a private room, it will join automatically.<br>
 
 If everything is set up correctly, you can bridge the room by typing <code>!login</code>. Then you just have to follow the instructions. The command <code>!help</code> shows a list with available commands.<br>
-Creating a new private room with the bot/bridge lets you add a different email account.<br>
+Creating new private rooms with the bridge lets you add multiple email accounts.<br>
 
 
 ## Note
