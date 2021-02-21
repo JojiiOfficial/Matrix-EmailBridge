@@ -289,7 +289,7 @@ func startMatrixSync(client *mautrix.Client) {
 							return
 						}
 					} else if evt.Content.AsMessage().MsgType == event.MsgFile || evt.Content.AsMessage().MsgType == event.MsgImage {
-						if strings.HasPrefix(string(evt.Content.AsMessage().URL) , "mxc://") {
+						if strings.HasPrefix(string(evt.Content.AsMessage().URL), "mxc://") {
 							reader, err := client.Download(id.MustParseContentURI(evt.Content.AsMessage().Body))
 							if err != nil {
 								client.SendText(roomID, "Couldn't download File: "+err.Error())
@@ -1048,7 +1048,7 @@ func handleMail(mail *imap.Message, section *imap.BodySectionName, account imapA
 	}
 	from := html.EscapeString(content.from)
 	fmt.Println("attachments: " + content.attachment)
-	headerContent := &event.MessageEventContent {
+	headerContent := &event.MessageEventContent{
 		Format:        event.FormatHTML,
 		Body:          "\r\n────────────────────────────────────\r\n## You've got a new Email from " + from + "\r\n" + "Subject: " + content.subject + "\r\n" + "────────────────────────────────────",
 		FormattedBody: "<br>────────────────────────────────────<br><b> You've got a new Email</b> from <b>" + from + "</b><br>" + "Subject: " + content.subject + "<br>" + "────────────────────────────────────",

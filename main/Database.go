@@ -40,13 +40,13 @@ type dbChange struct {
 }
 
 var tables = []table{
-	table{"mail", "mail TEXT, room INTEGER"},
-	table{"rooms", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, roomID TEXT, imapAccount INTEGER DEFAULT -1, smtpAccount INTEGER DEFAULT -1, mailCheckInterval INTEGER, isHTMLenabled INTEGER"},
-	table{"imapAccounts", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, host TEXT, username TEXT, password TEXT, ignoreSSL INTEGER, mailbox TEXT"},
-	table{"smtpAccounts", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, host TEXT, port int, username TEXT, password TEXT, ignoreSSL INTEGER"},
-	table{"emailWritingTemp", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, roomID TEXT, receiver TEXT, subject TEXT DEFAULT ' ', body TEXT DEFAULT ' ', markdown INTEGER"},
-	table{"version", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, version INTEGER"},
-	table{"emailAttachments", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, writeTempID INTEGER, fileName TEXT"},
+	{"mail", "mail TEXT, room INTEGER"},
+	{"rooms", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, roomID TEXT, imapAccount INTEGER DEFAULT -1, smtpAccount INTEGER DEFAULT -1, mailCheckInterval INTEGER, isHTMLenabled INTEGER"},
+	{"imapAccounts", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, host TEXT, username TEXT, password TEXT, ignoreSSL INTEGER, mailbox TEXT"},
+	{"smtpAccounts", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, host TEXT, port int, username TEXT, password TEXT, ignoreSSL INTEGER"},
+	{"emailWritingTemp", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, roomID TEXT, receiver TEXT, subject TEXT DEFAULT ' ', body TEXT DEFAULT ' ', markdown INTEGER"},
+	{"version", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, version INTEGER"},
+	{"emailAttachments", "pk_id INTEGER PRIMARY KEY AUTOINCREMENT, writeTempID INTEGER, fileName TEXT"},
 }
 
 func handleDBVersion() {
@@ -101,9 +101,9 @@ func saveVersion(version int) error {
 }
 
 var dbChanges = []dbChange{
-	dbChange{2, "ALTER TABLE rooms ADD isHTMLenabled INTEGER"},
-	dbChange{2, "UPDATE rooms SET isHTMLenabled=0"},
-	dbChange{7, "CREATE TABLE `blocklist` (`pkID` INTEGER PRIMARY KEY AUTOINCREMENT, `imapAccount` INTEGER, `address` INTEGER);"},
+	{2, "ALTER TABLE rooms ADD isHTMLenabled INTEGER"},
+	{2, "UPDATE rooms SET isHTMLenabled=0"},
+	{7, "CREATE TABLE `blocklist` (`pkID` INTEGER PRIMARY KEY AUTOINCREMENT, `imapAccount` INTEGER, `address` INTEGER);"},
 }
 
 func startDBupgrader(oldVers int) {
