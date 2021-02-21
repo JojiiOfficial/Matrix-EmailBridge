@@ -68,7 +68,7 @@ func (fs *FileStore) LoadNextBatch(_ string) string {
 
 //SaveRoom saves room
 func (fs *FileStore) SaveRoom(room *mautrix.Room) {
-	fs.Rooms[room.ID] = room
+	fs.Rooms[string(room.ID)] = room
 }
 
 //LoadRoom loads room

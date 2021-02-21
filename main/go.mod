@@ -10,5 +10,5 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.6
 	github.com/spf13/viper v1.7.1
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
-	maunium.net/go/mautrix v0.1.0-beta.2
+	maunium.net/go/mautrix v0.8.0
 )

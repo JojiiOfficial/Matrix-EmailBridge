@@ -47,14 +47,11 @@ docker start email_bridge  #start the bridge
 Note: 'localhost' as 'matrixserver' (in cfg.json) wouldn't work because of dockers own network. You have to specify the internal IP address of the matrix-synapse server!
 `
 # Get started
-You have to adjust the config file (cfg.json) to make it work with your matrix server.
-Invite your bridge into a private room, it will join automatically.
-<br>If everything is set up correctly, you can bridge the room by typing <code>!login</code>. Then you just have to follow the instructions. The command <code>!help</code> shows a list with available commands.<br>Creating a new private room with the bot/bridge lets you add a different email account.<br>
-Using following command allows you to get an accesstoken for a given user:<br>
-```bash
-curl -X POST -H "Content-Type:application/json" http://<domain>:8008/_matrix/client/r0/login -d '{"type":"m.login.password","identifier":{"type":"m.id.user","user":"<USERNAME>"},"password":"<PASSWORD>"}'
-```
+Create a bot user.
 
+Adjust the config file (cfg.json) to make it work with your matrix server.
+Invite your bot into a private room, it will join automatically.
+<br>If everything is set up correctly, you can bridge the room by typing <code>!login</code>. Then you just have to follow the instructions. The command <code>!help</code> shows a list with available commands.<br>Creating a new private room with the bot/bridge lets you add a different email account.<br>
 
 
 ## Note
