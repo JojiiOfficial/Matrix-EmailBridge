@@ -14,7 +14,7 @@ The last command executes the bridge once to create the probably missing config 
 Continue: --> [Configure](https://github.com/JojiiOfficial/Matrix-EmailBridge#Get-started)
 
 ### Docker method
-DockerHub: https://hub.docker.com/repository/docker/jojii/matrix_email_bridge<br><br>
+DockerHub: https://hub.docker.com/r/jojii/matrix_email_bridge<br><br>
 Run 
 ```bash
 docker pull jojii/matrix_email_bridge
