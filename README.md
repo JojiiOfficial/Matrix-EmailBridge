@@ -42,8 +42,25 @@ Note: 'localhost' as 'matrixserver' (in cfg.json) wouldn't work because of docke
 
 # Get started
 1. Create a bot user.
-2. Adjust the config file (cfg.json) to make it work with your matrix server.
-3. Invite your bot into a private room, it will join automatically.<br>
+2. Get an access token to your Matrix-Server: 
+```bash
+curl -XPOST -d '{"type":"m.login.password", "user":"@mailBotUsername:your-domain.com", "password":"mailbotPassword"}' "https://matrix.your-domain.com/_matrix/client/r0/login"
+```
+3. Adjust the config file (cfg.json) to make it work with your matrix server:
+```JSON
+{
+  "allowed_servers": [
+    "your-base-domain.com"
+  ],
+  "defaultmailcheckinterval": 30,
+  "htmldefault": false,
+  "markdownenabledbydefault": true,
+  "matrixaccesstoken": "access-token-from-step-3",
+  "matrixserver": "matrix.full-matrix-server-domain.com",
+  "matrixuserid": "@mailBotUsername:your-base-domain.com"
+}
+```
+4. Invite your bot into a private room, it will join automatically.<br>
 
 If everything is set up correctly, you can bridge the room by typing <code>!login</code>. Then you just have to follow the instructions. The command <code>!help</code> shows a list with available commands.<br>
 Creating new private rooms with the bridge lets you add multiple email accounts.<br>
