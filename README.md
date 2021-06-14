@@ -43,7 +43,9 @@ Note: 'localhost' as 'matrixserver' (in cfg.json) wouldn't work because of docke
 # Get started
 1. Create a bot user.
 2. Get an access token to your Matrix-Server: 
-`curl -XPOST -d '{"type":"m.login.password", "user":"@mailBotUsername:your-domain.com", "password":"mailbotPassword"}' "https://matrix.your-domain.com/_matrix/client/r0/login"`
+```bash
+curl -XPOST -d '{"type":"m.login.password", "user":"@mailBotUsername:your-domain.com", "password":"mailbotPassword"}' "https://matrix.your-domain.com/_matrix/client/r0/login"
+```
 3. Adjust the config file (cfg.json) to make it work with your matrix server:
 ```JSON
 {
