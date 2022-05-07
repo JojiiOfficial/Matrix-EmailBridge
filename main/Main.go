@@ -7,12 +7,13 @@ import (
 	"html"
 	"io"
 	"log"
-	"maunium.net/go/mautrix/event"
-	"maunium.net/go/mautrix/id"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"maunium.net/go/mautrix/event"
+	"maunium.net/go/mautrix/id"
 
 	"github.com/gomarkdown/markdown"
 	"gopkg.in/gomail.v2"
@@ -30,6 +31,7 @@ var db *sql.DB
 var matrixClient *mautrix.Client
 var tempDir = "temp/"
 var dirPrefix string
+var store *FileStore
 
 func initDB() error {
 	database, era := sql.Open("sqlite3", dirPrefix+"data.db")
@@ -100,8 +102,10 @@ func loginMatrix() {
 		panic(err)
 	}
 	fmt.Println("Login successful")
+	store = NewFileStore(dirPrefix+"store.json", client.UserID)
+	client.Store = store
 	matrixClient = client
-	go startMatrixSync(client)
+	go startMatrixSync(matrixClient)
 }
 
 func getHostFromMatrixID(matrixID string) (host string, err int) {
@@ -141,31 +145,41 @@ func startMatrixSync(client *mautrix.Client) {
 	fmt.Println(client.UserID)
 
 	syncer := client.Syncer.(*mautrix.DefaultSyncer)
-	syncer.OnEventType(event.StateJoinRules, func(source mautrix.EventSource, evt *event.Event) {
-		host, err := getHostFromMatrixID(string(evt.Sender))
-		if err == -1 {
-			listcontains := contains(viper.GetStringSlice("allowed_servers"), host)
-			if listcontains {
-				client.JoinRoom(string(evt.RoomID), "", nil)
-				client.SendText(evt.RoomID, "Hey you have invited me to a new room. Enter !login to bridge this room to a Mail account")
-			} else {
-				client.LeaveRoom(evt.RoomID)
-				WriteLog(info, string("Got invalid invite from "+evt.Sender+" reason: senders server not whitelisted! Adjust your config if you want to allow this host using me"))
-				return
-			}
-		} else {
-			WriteLog(critical, "")
-		}
-	})
 
 	syncer.OnEventType(event.StateMember, func(source mautrix.EventSource, evt *event.Event) {
-		if evt.Sender != client.UserID && evt.Content.AsMember().Membership == "leave" {
-			logOut(client, string(evt.RoomID), true)
+		store.UpdateRoomState(evt.RoomID, evt)
+		if id.UserID(*evt.StateKey) == client.UserID {
+			currentMembership, _ := store.GetMembershipState(evt.RoomID)
+			if source == mautrix.EventSourceInvite|mautrix.EventSourceState && currentMembership == event.MembershipInvite {
+				fmt.Println("invited...")
+				host, err := getHostFromMatrixID(string(evt.Sender))
+				if err == -1 {
+					listcontains := contains(viper.GetStringSlice("allowed_servers"), host)
+					if listcontains {
+						client.JoinRoomByID(evt.RoomID)
+						client.SendText(evt.RoomID, "Hey you have invited me to a new room. Enter !login to bridge this room to a Mail account")
+					} else {
+						client.LeaveRoom(evt.RoomID)
+						WriteLog(info, string("Got invalid invite from "+evt.Sender+" reason: senders server not whitelisted! Adjust your config if you want to allow this host using me"))
+						return
+					}
+				} else {
+					WriteLog(critical, "")
+				}
+			}
+			if source == mautrix.EventSourceLeave|mautrix.EventSourceTimeline && currentMembership == event.MembershipLeave {
+				fmt.Println("leaving...")
+				logOut(client, string(evt.RoomID), true)
+			}
 		}
 	})
 
 	syncer.OnEventType(event.EventMessage, func(source mautrix.EventSource, evt *event.Event) {
 		if evt.Sender == client.UserID {
+			return
+		}
+		currentMembership, timestamp := store.GetMembershipState(evt.RoomID)
+		if currentMembership == event.MembershipLeave || timestamp > evt.Timestamp {
 			return
 		}
 		message := evt.Content.AsMessage().Body
@@ -690,7 +704,6 @@ func startMatrixSync(client *mautrix.Client) {
 				} else {
 					client.SendText(roomID, "Successfully unbridged")
 				}
-
 			} else if strings.HasPrefix(message, "!blocklist") || strings.HasPrefix(message, "!bl") {
 				imapAccID, _, _ := getRoomAccounts(roomID.String())
 				if imapAccID == -1 {

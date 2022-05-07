@@ -6,3 +6,5 @@ store.json
 logs
 data
 .idea/
+*.code-workspace
+Matrix-EmailBridge
