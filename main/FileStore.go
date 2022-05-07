@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 
 	"maunium.net/go/mautrix"
@@ -12,7 +11,8 @@ import (
 
 //FileStore required by the bridgeAPI
 type FileStore struct {
-	path string
+	path   string
+	userID id.UserID
 
 	FilterID  string                      `json:"filter_id"`
 	NextBatch string                      `json:"next_batch"`
@@ -20,13 +20,13 @@ type FileStore struct {
 }
 
 //NewFileStore creates a new filestore
-func NewFileStore(path string) *FileStore {
+func NewFileStore(path string, userID id.UserID) *FileStore {
 	store := FileStore{
-		path:  path,
-		Rooms: make(map[id.RoomID]*mautrix.Room),
+		path:   path,
+		userID: userID,
+		Rooms:  make(map[id.RoomID]*mautrix.Room),
 	}
 	store.Load()
-	fmt.Println("File: ", store)
 	return &store
 }
 
@@ -83,18 +83,18 @@ func (fs *FileStore) LoadRoom(roomID id.RoomID) *mautrix.Room {
 	return fs.Rooms[roomID]
 }
 
-func (fs *FileStore) UpdateRoomState(roomID id.RoomID, statusKey string, evt *event.Event) {
+func (fs *FileStore) UpdateRoomState(roomID id.RoomID, evt *event.Event) {
 	room := fs.LoadRoom(roomID)
 	if room == nil {
 		room = mautrix.NewRoom(roomID)
 		fs.SaveRoom(room)
 	}
-	if room.State[event.StateMember][statusKey].Timestamp < evt.Timestamp {
+	if room.State[event.StateMember][string(fs.userID)].Timestamp < evt.Timestamp {
 		room.UpdateState(evt)
 	}
 }
 
-func (fs *FileStore) GetMembership(roomID id.RoomID, statusKey id.UserID) event.Membership {
+func (fs *FileStore) GetMembership(roomID id.RoomID) event.Membership {
 	room := fs.LoadRoom(roomID)
-	return room.GetMembershipState(statusKey)
+	return room.GetMembershipState(fs.userID)
 }

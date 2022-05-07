@@ -92,7 +92,6 @@ func loginMatrix() {
 	if err != nil {
 		panic(err)
 	}
-	client.Store = store
 	_, err = client.Login(&mautrix.ReqLogin{
 		Type:             "m.login.password",
 		Identifier:       mautrix.UserIdentifier{Type: mautrix.IdentifierTypeUser, User: viper.GetString("matrixuserid")},
@@ -103,8 +102,10 @@ func loginMatrix() {
 		panic(err)
 	}
 	fmt.Println("Login successful")
+	store = NewFileStore(dirPrefix+"store.json", client.UserID)
+	client.Store = store
 	matrixClient = client
-	go startMatrixSync(client)
+	go startMatrixSync(matrixClient)
 }
 
 func getHostFromMatrixID(matrixID string) (host string, err int) {
@@ -146,14 +147,14 @@ func startMatrixSync(client *mautrix.Client) {
 	syncer := client.Syncer.(*mautrix.DefaultSyncer)
 
 	syncer.OnEventType(event.StateMember, func(source mautrix.EventSource, evt *event.Event) {
-		fmt.Println("User: ", client.UserID)
-		fmt.Println("Membership: ", evt.Content.AsMember().Membership)
-		fmt.Println("Source: ", source)
-		if id.UserID(*evt.StateKey) == client.UserID && source&mautrix.EventSourceTimeline == 0 {
+		store.UpdateRoomState(evt.RoomID, evt)
+		// fmt.Println("User: ", client.UserID)
+		if id.UserID(*evt.StateKey) == client.UserID {
+			// fmt.Println("Timestamp: ", time.UnixMilli(evt.Timestamp).Local())
 			// fmt.Println("Membership: ", evt.Content.AsMember().Membership)
 			// fmt.Println("Event type: ", evt.Type)
 			// fmt.Println("Source: ", source)
-			currentMembership := store.GetMembership(evt.RoomID, client.UserID)
+			currentMembership := store.GetMembership(evt.RoomID)
 			// fmt.Println("Current Membership: ", currentMembership)
 			if source == mautrix.EventSourceInvite|mautrix.EventSourceState && currentMembership == event.MembershipInvite {
 				fmt.Println("Timestamp: ", time.UnixMilli(evt.Timestamp).Local())
@@ -902,8 +903,6 @@ func main() {
 	}
 
 	deleteAllWritingTemps()
-
-	store = NewFileStore(dirPrefix + "store.json")
 
 	loginMatrix()
 
