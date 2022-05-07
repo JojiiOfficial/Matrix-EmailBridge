@@ -87,11 +87,12 @@ func (fs *FileStore) UpdateRoomState(roomID id.RoomID, evt *event.Event) {
 	room := fs.LoadRoom(roomID)
 	if room == nil {
 		room = mautrix.NewRoom(roomID)
-		fs.SaveRoom(room)
 	}
-	if room.State[event.StateMember][string(fs.userID)].Timestamp < evt.Timestamp {
+	event := room.State[event.StateMember][string(fs.userID)]
+	if event == nil || event.Timestamp < evt.Timestamp {
 		room.UpdateState(evt)
 	}
+	fs.SaveRoom(room)
 }
 
 func (fs *FileStore) GetMembershipState(roomID id.RoomID) (event.Membership, int64) {
