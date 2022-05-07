@@ -7,12 +7,13 @@ import (
 	"html"
 	"io"
 	"log"
-	"maunium.net/go/mautrix/event"
-	"maunium.net/go/mautrix/id"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"maunium.net/go/mautrix/event"
+	"maunium.net/go/mautrix/id"
 
 	"github.com/gomarkdown/markdown"
 	"gopkg.in/gomail.v2"
@@ -141,35 +142,61 @@ func startMatrixSync(client *mautrix.Client) {
 	fmt.Println(client.UserID)
 
 	syncer := client.Syncer.(*mautrix.DefaultSyncer)
-	syncer.OnEventType(event.StateJoinRules, func(source mautrix.EventSource, evt *event.Event) {
-		host, err := getHostFromMatrixID(string(evt.Sender))
-		if err == -1 {
-			listcontains := contains(viper.GetStringSlice("allowed_servers"), host)
-			if listcontains {
-				client.JoinRoom(string(evt.RoomID), "", nil)
-				client.SendText(evt.RoomID, "Hey you have invited me to a new room. Enter !login to bridge this room to a Mail account")
-			} else {
-				client.LeaveRoom(evt.RoomID)
-				WriteLog(info, string("Got invalid invite from "+evt.Sender+" reason: senders server not whitelisted! Adjust your config if you want to allow this host using me"))
-				return
-			}
-		} else {
-			WriteLog(critical, "")
-		}
-	})
 
 	syncer.OnEventType(event.StateMember, func(source mautrix.EventSource, evt *event.Event) {
-		if evt.Sender != client.UserID && evt.Content.AsMember().Membership == "leave" {
-			logOut(client, string(evt.RoomID), true)
+		fmt.Println("User: ", client.UserID)
+		fmt.Println("Membership: ", evt.Content.AsMember().Membership)
+		fmt.Println("Source: ", source)
+		if id.UserID(*evt.StateKey) == client.UserID && source&mautrix.EventSourceTimeline == 0 {
+			// fmt.Println("Membership: ", evt.Content.AsMember().Membership)
+			// fmt.Println("Event type: ", evt.Type)
+			// fmt.Println("Source: ", source)
+			// fmt.Println(int(source))
+			// fmt.Println("Event: ", evt.Content.Parsed)
+			if source&mautrix.EventSourceInvite != 0 {
+				fmt.Println("invited...")
+				host, err := getHostFromMatrixID(string(evt.Sender))
+				if err == -1 {
+					listcontains := contains(viper.GetStringSlice("allowed_servers"), host)
+					if listcontains {
+						client.JoinRoomByID(evt.RoomID)
+					} else {
+						client.LeaveRoom(evt.RoomID)
+						WriteLog(info, string("Got invalid invite from "+evt.Sender+" reason: senders server not whitelisted! Adjust your config if you want to allow this host using me"))
+						return
+					}
+				} else {
+					WriteLog(critical, "")
+				}
+			}
+			if source&mautrix.EventSourceJoin != 0 {
+				fmt.Println("joined...")
+				client.SendText(evt.RoomID, "Hey you have invited me to a new room. Enter !login to bridge this room to a Mail account")
+			}
+			if source&mautrix.EventSourceLeave != 0 {
+				fmt.Println("leaving...")
+				logOut(client, string(evt.RoomID), true)
+			}
+			fmt.Println("")
 		}
 	})
 
 	syncer.OnEventType(event.EventMessage, func(source mautrix.EventSource, evt *event.Event) {
+		fmt.Println("Source: ", source)
+		fmt.Println(int(source))
+		fmt.Println("Sender: ", evt.Sender)
+		// fmt.Println(int(mautrix.EventSourceEphemeral))
+		// fmt.Println(int(mautrix.EventSourceLeave))
+		// fmt.Println(int(source & mautrix.EventSourceTimeline))
 		if evt.Sender == client.UserID {
 			return
 		}
+		// if evt.Sender != client.UserID && source&mautrix.EventSourceTimeline != 0 {
+		// 	return
+		// }
 		message := evt.Content.AsMessage().Body
 		roomID := evt.RoomID
+		fmt.Println("Message: ", message)
 
 		if is, err := isUserWritingEmail(string(roomID)); is && err == nil {
 			writeTemp, err := getWritingTemp(string(roomID))
@@ -684,12 +711,12 @@ func startMatrixSync(client *mautrix.Client) {
 					client.SendText(roomID, "Successfully logged out")
 				}
 			} else if message == "!leave" {
-				err := logOut(client, roomID.String(), true)
-				if err != nil {
-					client.SendText(roomID, "Error leaving: "+err.Error())
-				} else {
-					client.SendText(roomID, "Successfully unbridged")
-				}
+				// err := logOut(client, roomID.String(), true)
+				// if err != nil {
+				// 	client.SendText(roomID, "Error leaving: "+err.Error())
+				// } else {
+				// 	client.SendText(roomID, "Successfully unbridged")
+				// }
 
 			} else if strings.HasPrefix(message, "!blocklist") || strings.HasPrefix(message, "!bl") {
 				imapAccID, _, _ := getRoomAccounts(roomID.String())
