@@ -14,10 +14,9 @@ import (
 type FileStore struct {
 	path string
 
-	FilterID    string                         `json:"filter_id"`
-	NextBatch   string                         `json:"next_batch"`
-	Rooms       map[id.RoomID]*mautrix.Room    `json:"rooms"`
-	Memberships map[id.RoomID]event.Membership `json:"memberships"`
+	FilterID  string                      `json:"filter_id"`
+	NextBatch string                      `json:"next_batch"`
+	Rooms     map[id.RoomID]*mautrix.Room `json:"rooms"`
 }
 
 //NewFileStore creates a new filestore
@@ -93,4 +92,9 @@ func (fs *FileStore) UpdateRoomState(roomID id.RoomID, statusKey string, evt *ev
 	if room.State[event.StateMember][statusKey].Timestamp < evt.Timestamp {
 		room.UpdateState(evt)
 	}
+}
+
+func (fs *FileStore) GetMembership(roomID id.RoomID, statusKey id.UserID) event.Membership {
+	room := fs.LoadRoom(roomID)
+	return room.GetMembershipState(statusKey)
 }

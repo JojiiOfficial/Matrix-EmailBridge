@@ -153,9 +153,10 @@ func startMatrixSync(client *mautrix.Client) {
 			// fmt.Println("Membership: ", evt.Content.AsMember().Membership)
 			// fmt.Println("Event type: ", evt.Type)
 			// fmt.Println("Source: ", source)
-			// fmt.Println(int(source))
-			// fmt.Println("Event: ", evt.Content.Parsed)
-			if source&mautrix.EventSourceInvite != 0 {
+			currentMembership := store.GetMembership(evt.RoomID, client.UserID)
+			// fmt.Println("Current Membership: ", currentMembership)
+			if source == mautrix.EventSourceInvite|mautrix.EventSourceState && currentMembership == event.MembershipInvite {
+				fmt.Println("Timestamp: ", time.UnixMilli(evt.Timestamp).Local())
 				fmt.Println("invited...")
 				host, err := getHostFromMatrixID(string(evt.Sender))
 				if err == -1 {
@@ -172,11 +173,8 @@ func startMatrixSync(client *mautrix.Client) {
 					WriteLog(critical, "")
 				}
 			}
-			if source&mautrix.EventSourceJoin != 0 {
-				fmt.Println("joined...")
-				// client.SendText(evt.RoomID, "Hey you have invited me to a new room. Enter !login to bridge this room to a Mail account")
-			}
-			if source&mautrix.EventSourceLeave != 0 {
+			if source == mautrix.EventSourceLeave|mautrix.EventSourceTimeline && currentMembership == event.MembershipLeave {
+				fmt.Println("Timestamp: ", time.UnixMilli(evt.Timestamp).Local())
 				fmt.Println("leaving...")
 				logOut(client, string(evt.RoomID), true)
 			}
@@ -188,15 +186,6 @@ func startMatrixSync(client *mautrix.Client) {
 		fmt.Println("Source: ", source)
 		fmt.Println(int(source))
 		fmt.Println("Sender: ", evt.Sender)
-		// fmt.Println(int(mautrix.EventSourceEphemeral))
-		// fmt.Println(int(mautrix.EventSourceLeave))
-		// fmt.Println(int(source & mautrix.EventSourceTimeline))
-		if evt.Sender == client.UserID {
-			return
-		}
-		// if evt.Sender != client.UserID && source&mautrix.EventSourceTimeline != 0 {
-		// 	return
-		// }
 		message := evt.Content.AsMessage().Body
 		roomID := evt.RoomID
 		fmt.Println("-------------")
