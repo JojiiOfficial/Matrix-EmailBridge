@@ -51,24 +51,24 @@ func (fs *FileStore) Load() error {
 }
 
 //SaveFilterID sets filterID and saves
-func (fs *FileStore) SaveFilterID(userID id.UserID, filterID string) {
+func (fs *FileStore) SaveFilterID(_ id.UserID, filterID string) {
 	fs.FilterID = filterID
 	fs.Save()
 }
 
 //LoadFilterID loadsFilterID
-func (fs *FileStore) LoadFilterID(userID id.UserID) string {
+func (fs *FileStore) LoadFilterID(_ id.UserID) string {
 	return fs.FilterID
 }
 
 //SaveNextBatch saves Next batch
-func (fs *FileStore) SaveNextBatch(userID id.UserID, nextBatchToken string) {
+func (fs *FileStore) SaveNextBatch(_ id.UserID, nextBatchToken string) {
 	fs.NextBatch = nextBatchToken
 	fs.Save()
 }
 
 //LoadNextBatch loads  next batch
-func (fs *FileStore) LoadNextBatch(userID id.UserID) string {
+func (fs *FileStore) LoadNextBatch(_ id.UserID) string {
 	return fs.NextBatch
 }
 
@@ -94,7 +94,7 @@ func (fs *FileStore) UpdateRoomState(roomID id.RoomID, evt *event.Event) {
 	}
 }
 
-func (fs *FileStore) GetMembership(roomID id.RoomID) event.Membership {
+func (fs *FileStore) GetMembershipState(roomID id.RoomID) (event.Membership, int64) {
 	room := fs.LoadRoom(roomID)
-	return room.GetMembershipState(fs.userID)
+	return room.GetMembershipState(fs.userID), room.State[event.StateMember][string(fs.userID)].Timestamp
 }

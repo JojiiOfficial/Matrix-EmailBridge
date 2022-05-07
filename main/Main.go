@@ -148,16 +148,9 @@ func startMatrixSync(client *mautrix.Client) {
 
 	syncer.OnEventType(event.StateMember, func(source mautrix.EventSource, evt *event.Event) {
 		store.UpdateRoomState(evt.RoomID, evt)
-		// fmt.Println("User: ", client.UserID)
 		if id.UserID(*evt.StateKey) == client.UserID {
-			// fmt.Println("Timestamp: ", time.UnixMilli(evt.Timestamp).Local())
-			// fmt.Println("Membership: ", evt.Content.AsMember().Membership)
-			// fmt.Println("Event type: ", evt.Type)
-			// fmt.Println("Source: ", source)
-			currentMembership := store.GetMembership(evt.RoomID)
-			// fmt.Println("Current Membership: ", currentMembership)
+			currentMembership, _ := store.GetMembershipState(evt.RoomID)
 			if source == mautrix.EventSourceInvite|mautrix.EventSourceState && currentMembership == event.MembershipInvite {
-				fmt.Println("Timestamp: ", time.UnixMilli(evt.Timestamp).Local())
 				fmt.Println("invited...")
 				host, err := getHostFromMatrixID(string(evt.Sender))
 				if err == -1 {
@@ -175,24 +168,22 @@ func startMatrixSync(client *mautrix.Client) {
 				}
 			}
 			if source == mautrix.EventSourceLeave|mautrix.EventSourceTimeline && currentMembership == event.MembershipLeave {
-				fmt.Println("Timestamp: ", time.UnixMilli(evt.Timestamp).Local())
 				fmt.Println("leaving...")
 				logOut(client, string(evt.RoomID), true)
 			}
-			fmt.Println("")
 		}
 	})
 
 	syncer.OnEventType(event.EventMessage, func(source mautrix.EventSource, evt *event.Event) {
-		fmt.Println("Source: ", source)
-		fmt.Println(int(source))
-		fmt.Println("Sender: ", evt.Sender)
+		if evt.Sender == client.UserID {
+			return
+		}
+		currentMembership, timestamp := store.GetMembershipState(evt.RoomID)
+		if currentMembership == event.MembershipLeave || timestamp > evt.Timestamp {
+			return
+		}
 		message := evt.Content.AsMessage().Body
 		roomID := evt.RoomID
-		fmt.Println("-------------")
-		fmt.Println("Timestamp: ", time.UnixMilli(evt.Timestamp).Local())
-		fmt.Println("Message: ", message)
-		fmt.Println("-------------")
 
 		if is, err := isUserWritingEmail(string(roomID)); is && err == nil {
 			writeTemp, err := getWritingTemp(string(roomID))
