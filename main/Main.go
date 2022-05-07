@@ -31,6 +31,7 @@ var db *sql.DB
 var matrixClient *mautrix.Client
 var tempDir = "temp/"
 var dirPrefix string
+var store *FileStore
 
 func initDB() error {
 	database, era := sql.Open("sqlite3", dirPrefix+"data.db")
@@ -91,7 +92,7 @@ func loginMatrix() {
 	if err != nil {
 		panic(err)
 	}
-	client.Store = NewFileStore(dirPrefix + "store.json")
+	client.Store = store
 	_, err = client.Login(&mautrix.ReqLogin{
 		Type:             "m.login.password",
 		Identifier:       mautrix.UserIdentifier{Type: mautrix.IdentifierTypeUser, User: viper.GetString("matrixuserid")},
@@ -912,6 +913,8 @@ func main() {
 	}
 
 	deleteAllWritingTemps()
+
+	store = NewFileStore(dirPrefix + "store.json")
 
 	loginMatrix()
 

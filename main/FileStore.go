@@ -83,3 +83,14 @@ func (fs *FileStore) SaveRoom(room *mautrix.Room) {
 func (fs *FileStore) LoadRoom(roomID id.RoomID) *mautrix.Room {
 	return fs.Rooms[roomID]
 }
+
+func (fs *FileStore) UpdateRoomState(roomID id.RoomID, statusKey string, evt *event.Event) {
+	room := fs.LoadRoom(roomID)
+	if room == nil {
+		room = mautrix.NewRoom(roomID)
+		fs.SaveRoom(room)
+	}
+	if room.State[event.StateMember][statusKey].Timestamp < evt.Timestamp {
+		room.UpdateState(evt)
+	}
+}
