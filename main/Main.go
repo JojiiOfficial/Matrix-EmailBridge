@@ -91,6 +91,7 @@ func loginMatrix() {
 	if err != nil {
 		panic(err)
 	}
+	client.Store = NewFileStore(dirPrefix + "store.json")
 	_, err = client.Login(&mautrix.ReqLogin{
 		Type:             "m.login.password",
 		Identifier:       mautrix.UserIdentifier{Type: mautrix.IdentifierTypeUser, User: viper.GetString("matrixuserid")},
@@ -160,6 +161,7 @@ func startMatrixSync(client *mautrix.Client) {
 					listcontains := contains(viper.GetStringSlice("allowed_servers"), host)
 					if listcontains {
 						client.JoinRoomByID(evt.RoomID)
+						client.SendText(evt.RoomID, "Hey you have invited me to a new room. Enter !login to bridge this room to a Mail account")
 					} else {
 						client.LeaveRoom(evt.RoomID)
 						WriteLog(info, string("Got invalid invite from "+evt.Sender+" reason: senders server not whitelisted! Adjust your config if you want to allow this host using me"))
@@ -171,7 +173,7 @@ func startMatrixSync(client *mautrix.Client) {
 			}
 			if source&mautrix.EventSourceJoin != 0 {
 				fmt.Println("joined...")
-				client.SendText(evt.RoomID, "Hey you have invited me to a new room. Enter !login to bridge this room to a Mail account")
+				// client.SendText(evt.RoomID, "Hey you have invited me to a new room. Enter !login to bridge this room to a Mail account")
 			}
 			if source&mautrix.EventSourceLeave != 0 {
 				fmt.Println("leaving...")
@@ -196,7 +198,10 @@ func startMatrixSync(client *mautrix.Client) {
 		// }
 		message := evt.Content.AsMessage().Body
 		roomID := evt.RoomID
+		fmt.Println("-------------")
+		fmt.Println("Timestamp: ", time.UnixMilli(evt.Timestamp).Local())
 		fmt.Println("Message: ", message)
+		fmt.Println("-------------")
 
 		if is, err := isUserWritingEmail(string(roomID)); is && err == nil {
 			writeTemp, err := getWritingTemp(string(roomID))
@@ -711,13 +716,12 @@ func startMatrixSync(client *mautrix.Client) {
 					client.SendText(roomID, "Successfully logged out")
 				}
 			} else if message == "!leave" {
-				// err := logOut(client, roomID.String(), true)
-				// if err != nil {
-				// 	client.SendText(roomID, "Error leaving: "+err.Error())
-				// } else {
-				// 	client.SendText(roomID, "Successfully unbridged")
-				// }
-
+				err := logOut(client, roomID.String(), true)
+				if err != nil {
+					client.SendText(roomID, "Error leaving: "+err.Error())
+				} else {
+					client.SendText(roomID, "Successfully unbridged")
+				}
 			} else if strings.HasPrefix(message, "!blocklist") || strings.HasPrefix(message, "!bl") {
 				imapAccID, _, _ := getRoomAccounts(roomID.String())
 				if imapAccID == -1 {
