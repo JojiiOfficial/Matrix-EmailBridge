@@ -55,7 +55,7 @@ curl -XPOST -d '{"type":"m.login.password", "user":"@mailBotUsername:your-domain
   "defaultmailcheckinterval": 30,
   "htmldefault": false,
   "markdownenabledbydefault": true,
-  "matrixaccesstoken": "access-token-from-step-3",
+  "matrixaccesstoken": "access-token-from-step-2",
   "matrixserver": "matrix.full-matrix-server-domain.com",
   "matrixuserid": "@mailBotUsername:your-base-domain.com"
 }
